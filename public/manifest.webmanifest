@@ -1,0 +1,10 @@
+{
+  "name": "OpenMed Sandbox",
+  "short_name": "OpenMed",
+  "version": "0.3.0",
+  "display": "standalone",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
+  "start_url": "/",
+  "scope": "/"
+}

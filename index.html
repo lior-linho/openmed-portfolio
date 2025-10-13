@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenMed Sandbox MVP</title>
+    <style>
+      html, body, #root { height: 100%; margin: 0; }
+      html, body { overflow: hidden; overscroll-behavior: none; }
+      html { touch-action: manipulation; }
+      #root { height: 100vh; width: 100vw; }
+      * { box-sizing: border-box; }
+      body { background: #0b0f14; color: #e5e7eb; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+      .btn { 
+        background:#111827; 
+        border:1px solid #374151; 
+        padding:10px 14px; 
+        min-height: 40px;
+        border-radius:12px; 
+        cursor:pointer; 
+        color:#e5e7eb; 
+        font-size: 12px; 
+        transition: all 0.2s ease;
+        user-select: none;
+        touch-action: manipulation;
+      }
+      .btn:hover:not(:disabled) { 
+        background:#1f2937; 
+        border-color:#4b5563; 
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      }
+      .btn:active:not(:disabled) { 
+        transform: translateY(0);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      }
+      .btn:disabled { opacity:.5; cursor:not-allowed }
+      .btn.success { 
+        background:#065f46; 
+        border-color:#10b981;
+      }
+      .btn.success:hover:not(:disabled) { 
+        background:#047857; 
+        border-color:#34d399;
+      }
+      .btn.warning { 
+        background:#92400e; 
+        border-color:#f59e0b;
+      }
+      .btn.warning:hover:not(:disabled) { 
+        background:#b45309; 
+        border-color:#fbbf24;
+      }
+      .btn.danger { 
+        background:#991b1b; 
+        border-color:#ef4444;
+      }
+      .btn.danger:hover:not(:disabled) { 
+        background:#b91c1c; 
+        border-color:#f87171;
+      }
+      .panel { background:#0f172a; border:1px solid #1f2937; border-radius:16px; padding:12px; touch-action: none; }
+      .row { display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
+      .tab { padding:6px 10px; border:1px solid #334155; border-radius:10px; cursor:pointer; background:#0b1220; font-size: 12px; }
+      .tab.active { background:#0f172a }
+      select { background:#0b1220; color:#e5e7eb; border:1px solid #334155; border-radius:10px; padding:6px 8px; font-size: 12px; touch-action: manipulation; }
+      canvas { display: block; }
+      
+      /* Fix layout issues */
+      .main-container { 
+        display: grid; 
+        grid-template-columns: minmax(0, 1fr) 380px; 
+        gap: 12px; 
+        height: 100vh; 
+        width: 100vw; 
+        padding: 12px;
+        overflow: hidden;
+      }
+      
+      .left-panel {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 12px;
+        min-width: 0; /* Prevent content overflow */
+      }
+      
+      .right-panel {
+        min-width: 380px;
+        max-width: 380px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .control-row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 8px;
+        background: rgba(15, 23, 42, 0.5);
+        border-radius: 8px;
+        font-size: 12px;
+      }
+      
+      .control-row > * {
+        flex-shrink: 0;
+      }
+      
+      .control-row .spacer {
+        flex: 1;
+        min-width: 20px;
+      }
+      
+      .control-row label {
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      
+      .control-row span {
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      
+      /* ✨ Fix: Ensure Canvas container is not clipped */
+      .canvas-container {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        overflow: visible;
+        border-radius: 0;
+      }
+      
+      .canvas-container canvas {
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 0 !important;
+        border: none !important;
+        outline: none !important;
+        background: #0a0a0a !important;
+      }
+      
+      /* Responsive design */
+      @media (max-width: 1400px) {
+        .main-container {
+          grid-template-columns: minmax(0, 1fr) 320px;
+        }
+        .right-panel {
+          min-width: 320px;
+          max-width: 320px;
+        }
+      }
+      
+      @media (max-width: 1200px) {
+        .main-container {
+          grid-template-columns: minmax(0, 1fr) 280px;
+        }
+        .right-panel {
+          min-width: 280px;
+          max-width: 280px;
+        }
+        .btn {
+          padding: 6px 8px;
+          font-size: 11px;
+        }
+      }
+      
+      @media (max-width: 1024px) {
+        .main-container {
+          grid-template-columns: 1fr;
+          grid-template-rows: auto 1fr;
+          gap: 8px;
+          padding: 8px;
+        }
+        .right-panel {
+          min-width: unset;
+          max-width: unset;
+          max-height: 200px;
+        }
+        .left-panel {
+          grid-template-rows: auto 1fr;
+        }
+      }
+      
+      @media (max-width: 768px) {
+        .main-container {
+          padding: 4px;
+          gap: 4px;
+        }
+        .panel {
+          padding: 8px;
+          border-radius: 12px;
+        }
+        .btn {
+          padding: 4px 6px;
+          font-size: 10px;
+        }
+        .control-row {
+          padding: 4px;
+          gap: 4px;
+        }
+        .control-row label,
+        .control-row span {
+          font-size: 10px;
+        }
+      }
+      
+      @media (max-width: 480px) {
+        .main-container {
+          padding: 2px;
+        }
+        .panel {
+          padding: 6px;
+          border-radius: 8px;
+        }
+        .btn {
+          padding: 3px 4px;
+          font-size: 9px;
+        }
+        .row {
+          gap: 8px;
+        }
+      }
+      
+      /* Ensure content does not overflow */
+      .panel-content {
+        overflow: auto;
+        height: 100%;
+      }
+      
+      /* Optimize button group */
+      .button-group {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+      
+      .button-group .btn {
+        padding: 6px 8px;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
