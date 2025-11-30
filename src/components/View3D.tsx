@@ -5,7 +5,11 @@ import { createScene } from "../three/createScene";
 import { loadVessel } from "../three/loadVessel";
 import { useVesselStore } from "../store/vesselStore";
 
-export default function View3D() {
+type View3DProps = {
+  centerline: { x: number; y: number; z: number }[];
+};
+
+export default function View3D({ centerline }: View3DProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const currentKey = useVesselStore(s => s.currentKey);
   const catalog   = useVesselStore(s => s.catalog);
@@ -36,6 +40,23 @@ export default function View3D() {
       }
       vessel = proto.clone(true);
       scene.add(vessel);
+
+      if (centerline && centerline.length >= 2) {
+        const points = centerline.map(
+          (p) => new THREE.Vector3(p.x, p.y, p.z)
+        );
+        const geom = new THREE.BufferGeometry().setFromPoints(points);
+
+        const mat = new THREE.LineBasicMaterial({
+          color: 0x6ea8fe,
+          linewidth: 2,
+        });
+
+        const line = new THREE.Line(geom, mat);
+        line.name = "centerline";
+
+        scene.add(line);
+      }
     }
 
     function animate() {
@@ -56,7 +77,7 @@ export default function View3D() {
       controls.dispose();
       dispose();
     };
-  }, [canvasRef, currentKey]);
+  }, [canvasRef, currentKey, centerline]);
 
   return <canvas className="dv-canvas" ref={canvasRef} />;
 }

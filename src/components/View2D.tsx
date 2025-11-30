@@ -4,7 +4,11 @@ import { createScene } from "../three/createScene";
 import { loadVessel } from "../three/loadVessel";
 import { useVesselStore } from "../store/vesselStore";
 
-export default function View2D() {
+type View2DProps = {
+  centerline: { x: number; y: number; z: number }[];
+};
+
+export default function View2D({ centerline }: View2DProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const currentKey = useVesselStore(s => s.currentKey);
   const catalog   = useVesselStore(s => s.catalog);

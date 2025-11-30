@@ -1,9 +1,8 @@
+import type { VesselId } from "../../assets/vessels/centerlines";
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-
-// Week 5 · Controlled Guidewire Component (React + Three.js)
-// 受控版：支持从外层传入 centerline / radiusAt / wireRadius / camera / paused，并通过回调上报 u 与 state。
-// 默认内置一个可跑的 centerline 与 radiusAt（含狭窄+弯曲惩罚），即使不传 props 也能独立运行。
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // ===== Types & helpers =====
 export enum RunState {
@@ -16,6 +15,7 @@ export enum RunState {
 export type Vec3 = { x: number; y: number; z: number };
 
 type WireDemoProps = {
+  vesselId: VesselId;
   centerline?: Vec3[];                            // 中心线（不传则用内置）
   radiusAt?: (points: Vec3[], u: number) => number; // 有效半径函数（不传则用内置）
   wireRadius?: number;                             // 导丝半径（默认 0.55）
@@ -25,6 +25,12 @@ type WireDemoProps = {
   zoom?: number;                                    // 相机缩放（可选）
   onProgress?: (u: number) => void;                 // 进度回调 [0,1]
   onStateChange?: (s: RunState) => void;            // 状态回调
+};
+
+const vesselModelUrls: Record<VesselId, string> = {
+  cta_aorta: "/assets/vessels/cta_aorta.glb",
+  coronary_lad: "/assets/vessels/coronary_LAD.glb",
+  renal_demo: "/assets/vessels/renal_demo.glb",
 };
 
 function vAdd(a: Vec3, b: Vec3): Vec3 { return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }; }
@@ -90,7 +96,7 @@ function estimateCurvature(points: Vec3[], u: number): number {
 function radiusAtBase(): number { return 2.8; }
 function builtInRadiusAt(points: Vec3[], u: number): number {
   const base = radiusAtBase();
-  const u0 = 0.55, width = 0.06, depth = 0.6; // 60% 狭窄
+  const u0 = 0.55, width = 0.06, depth = 0.6; 
   const stenosis = Math.exp(-((u - u0)*(u - u0)) / (2*width*width));
   const radiusByStenosis = base * (1 - depth*stenosis);
   const kappa = estimateCurvature(points, u);
@@ -100,6 +106,7 @@ function builtInRadiusAt(points: Vec3[], u: number): number {
 
 // ===== Component =====
 const WireDemo: React.FC<WireDemoProps> = ({
+  vesselId,
   centerline: centerlineProp,
   radiusAt: radiusAtProp,
   wireRadius: wireRadiusProp = 0.55,
@@ -112,34 +119,39 @@ const WireDemo: React.FC<WireDemoProps> = ({
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [state, setState] = useState<RunState>(RunState.Idle);
-  const [u, setU] = useState(0); // 导丝推进进度 [0,1]
-  const [twist, setTwist] = useState(0); // Q/E 扭转角
+  const [u, setU] = useState(0); 
+  const [twist, setTwist] = useState(0); 
 
   const wireRadius = wireRadiusProp;
   const forwardSpeed = forwardSpeedProp;
 
-  // 输入 & 碰撞状态
+  
   const keys = useRef<Record<string, boolean>>({});
   const [collision, setCollision] = useState<{hit:boolean; clearance:number}>({ hit:false, clearance:0 });
-  const overpushRef = useRef(0); // 连续顶推计数，用于 Fail
+  const overpushRef = useRef(0); 
 
-  // 数据源
-  const centerline = centerlineProp ?? CURVED;
+  
+  const centerline =
+    centerlineProp && centerlineProp.length >= 3
+      ? centerlineProp
+      : CURVED;
+
   const radiusAt = radiusAtProp ?? builtInRadiusAt;
 
-  // three refs
+  
   const threeRef = useRef<{
     renderer?: THREE.WebGLRenderer;
     scene?: THREE.Scene;
     camera?: THREE.PerspectiveCamera;
-    wire?: THREE.Mesh;         // TubeGeometry (随 u 变化重建)
-    wireTip?: THREE.Mesh;      // 球形软头
-    vessel?: THREE.Mesh;       // 透明血管
-    line?: THREE.Line;         // 中心线可视化
+    wire?: THREE.Mesh;         
+    wireTip?: THREE.Mesh;      
+    vesselMesh?: THREE.Object3D | THREE.Group | THREE.Mesh;
+    line?: THREE.Line;         
+    controls?: OrbitControls;
     animId?: number;
   }>({});
 
-  // ===== 事件注册 =====
+  
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => { keys.current[e.key.toLowerCase()] = true; };
     const onKeyUp = (e: KeyboardEvent) => { keys.current[e.key.toLowerCase()] = false; };
@@ -148,7 +160,7 @@ const WireDemo: React.FC<WireDemoProps> = ({
     return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
   }, []);
 
-  // ===== Three.js 初始化 =====
+  
   useEffect(() => {
     const div = mountRef.current!;
     const width = div.clientWidth || 800;
@@ -163,8 +175,19 @@ const WireDemo: React.FC<WireDemoProps> = ({
     scene.background = new THREE.Color(0x0b1020);
 
     const camera = new THREE.PerspectiveCamera(55, width/height, 0.1, 3000);
-    camera.position.set(18, 14, -8);
-    camera.lookAt(0, 0, 40);
+    camera.position.set(0, 0, 200);
+    camera.lookAt(0, 0, 0);
+
+    
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enablePan = false;         
+controls.minDistance = 40;          
+controls.maxDistance = 260;         
+controls.target.set(0, 0, 0);       
+controls.update();
+
     if (cameraPose) {
       camera.position.set(...cameraPose.position);
       const la = new THREE.Vector3(...cameraPose.lookAt);
@@ -175,7 +198,7 @@ const WireDemo: React.FC<WireDemoProps> = ({
     const light1 = new THREE.DirectionalLight(0xffffff, 1.0); light1.position.set(20, 30, -10); scene.add(light1);
     const amb = new THREE.AmbientLight(0xffffff, 0.35); scene.add(amb);
 
-    // 中心线可视化
+    
     const lineGeom = new THREE.BufferGeometry();
     const linePositions = new Float32Array(centerline.length * 3);
     centerline.forEach((p, i) => { linePositions[i*3+0]=p.x; linePositions[i*3+1]=p.y; linePositions[i*3+2]=p.z; });
@@ -183,17 +206,45 @@ const WireDemo: React.FC<WireDemoProps> = ({
     const line = new THREE.Line(lineGeom, new THREE.LineBasicMaterial({ linewidth: 2, color: 0x6ea8fe }));
     scene.add(line);
 
-    // 血管（整根）——透明管（视觉占位，可改为 GLB）
-    const vesselCurvePoints = samplePolyline(centerline, 1.0, 160);
-    const vesselCurve = new THREE.CatmullRomCurve3(vesselCurvePoints.map(p => new THREE.Vector3(p.x,p.y,p.z)));
-    const vesselGeo = new THREE.TubeGeometry(vesselCurve, 300, radiusAtBase(), 36, false);
-    const vessel = new THREE.Mesh(
-      vesselGeo,
-      new THREE.MeshStandardMaterial({ color: 0x0e5a86, transparent: true, opacity: 0.1, side: THREE.DoubleSide })
-    );
-    scene.add(vessel);
+    
+const loader = new GLTFLoader();
+let vesselMesh: THREE.Object3D | null = null;
 
-    // 导丝（初始 0 长度）
+
+const vesselUrl = vesselModelUrls[vesselId];
+
+loader.load(
+  vesselUrl,
+  (gltf) => {
+    vesselMesh = gltf.scene;
+
+    
+    vesselMesh.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+      }
+    });
+
+    
+    vesselMesh.scale.set(1000, 1000, 1000);
+
+    scene.add(vesselMesh);
+
+    
+    if (threeRef.current) {
+      threeRef.current.vesselMesh = vesselMesh;
+    }
+  },
+  undefined,
+  (err) => {
+    console.error("[WireDemo] failed to load vessel GLB", vesselUrl, err);
+  }
+);
+
+
+    
     const wireCurvePoints = samplePolyline(centerline, Math.max(0.001, u), 60);
     const wireCurve = new THREE.CatmullRomCurve3(wireCurvePoints.map(p => new THREE.Vector3(p.x,p.y,p.z)));
     const wireGeo = new THREE.TubeGeometry(wireCurve, 120, wireRadius, 12, false);
@@ -203,7 +254,7 @@ const WireDemo: React.FC<WireDemoProps> = ({
     );
     scene.add(wire);
 
-    // 软头 tip
+    
     const tipPos = getPointOnCenterline(centerline, Math.max(0.001, u));
     const tip = new THREE.Mesh(
       new THREE.SphereGeometry(wireRadius*1.2, 24, 24),
@@ -212,10 +263,15 @@ const WireDemo: React.FC<WireDemoProps> = ({
     tip.position.set(tipPos.x, tipPos.y, tipPos.z);
     scene.add(tip);
 
-    // 保存引用
-    threeRef.current = { renderer, scene, camera, wire, wireTip: tip, vessel, line };
+    
+    threeRef.current = { 
+      renderer, scene, camera, wire, wireTip: tip, 
+      vesselMesh: undefined, 
+      line, 
+      controls
+    };
 
-    // resize
+    
     const onResize = () => {
       const w = div.clientWidth || window.innerWidth; const h = div.clientHeight || 500;
       renderer.setSize(w, h);
@@ -228,17 +284,17 @@ const WireDemo: React.FC<WireDemoProps> = ({
       renderer.dispose();
       if (div.contains(renderer.domElement)) div.removeChild(renderer.domElement);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [centerline, cameraPose?.position?.join(","), cameraPose?.lookAt?.join(","), zoom]);
 
-  // ===== 帧循环 =====
+  
   useEffect(() => {
-    const { renderer, scene, camera } = threeRef.current;
+    const { renderer, scene, camera, controls } = threeRef.current;
     if (!renderer || !scene || !camera) return;
 
     let animId = 0;
     const step = () => {
-      // 推进/回撤 & 扭转输入（暂停时不推进）
+      
       let du = 0;
       if (!paused) {
         if (keys.current["w"] || keys.current["arrowup"]) du += forwardSpeed;
@@ -247,14 +303,14 @@ const WireDemo: React.FC<WireDemoProps> = ({
         if (keys.current["e"]) setTwist(t => t + 0.03);
       }
 
-      // 当前位置有效半径与余量
+      
       const effRadius = radiusAt(centerline, u);
-      const clearance = effRadius - wireRadius; // <= 0 表示触碰/受限
+      const clearance = effRadius - wireRadius; 
 
-      // 碰撞/阻进逻辑
+      
       if (du > 0 && clearance <= 0) {
         setCollision({ hit:true, clearance });
-        overpushRef.current += 1; // 连续顶推计数
+        overpushRef.current += 1; 
       } else {
         setCollision({ hit:false, clearance });
         overpushRef.current = Math.max(0, overpushRef.current - 0.5);
@@ -264,11 +320,11 @@ const WireDemo: React.FC<WireDemoProps> = ({
         }
       }
 
-      // Fail 条件 & Success 条件
+      
       if (overpushRef.current > 60 && state !== RunState.Success) setState(RunState.Fail);
       if (u > 0.995 && state === RunState.Navigating) setState(RunState.Success);
 
-      // 动态重建导丝几何（按 u）
+      
       const { wire, wireTip } = threeRef.current;
       if (wire && wireTip) {
         const pts = samplePolyline(centerline, Math.max(0.001, u), 80);
@@ -282,6 +338,8 @@ const WireDemo: React.FC<WireDemoProps> = ({
         wireTip.rotation.z = twist; // 可视化扭转
       }
 
+      controls?.update();
+
       renderer.render(scene, camera);
       animId = requestAnimationFrame(step);
     };
@@ -290,26 +348,25 @@ const WireDemo: React.FC<WireDemoProps> = ({
     return () => cancelAnimationFrame(animId);
   }, [centerline, u, twist, state, paused, forwardSpeed, wireRadius, radiusAt]);
 
-  // 向外层汇报进度与状态
+
   useEffect(() => { onProgress?.(u); }, [u, onProgress]);
   useEffect(() => { onStateChange?.(state); }, [state, onStateChange]);
 
-  // ===== UI（可留可去：独立演示模式下使用） =====
+
   const [selectedLine, setSelectedLine] = useState<"straight" | "curved">("curved");
   useEffect(() => { if (!centerlineProp) setSelectedLine("curved"); }, [centerlineProp]);
   const resetAll = () => { setState(RunState.Idle); setU(0); setTwist(0); setCollision({ hit:false, clearance:0 }); overpushRef.current = 0; };
 
   return (
     <div className="w-full h-[600px] relative rounded-2xl shadow-lg overflow-hidden bg-slate-900">
-      {/* 独立演示工具条（集成到外壳后可移除） */}
-      {!centerlineProp && (
+      {true && (
         <div className="absolute top-3 left-3 z-20 flex gap-2 items-center">
           <select
             className="px-2 py-1 rounded bg-slate-800 text-slate-100 border border-slate-700"
             value={selectedLine}
             onChange={(e) => {
               const val = e.target.value as any;
-              // 仅用于演示：切换内置中心线
+              
               if (val === "straight") {
                 (window as any).__demo_centerline__ = STRAIGHT;
               } else {
