@@ -4,6 +4,9 @@ import { useParamsStore } from "../state/paramsStore";
 import { paramsToExperiment } from "../sim/interfaceAdapter";
 import type { ExperimentMeta } from "../sim/experimentSchema";
 
+// ⭐ 新增：引入当前使用的模型（Standard Calcified Bend v1）
+import { STANDARD_MODEL } from "../constants/models";
+
 /* ---------- 类型定义 ---------- */
 
 interface CardProps {
@@ -81,8 +84,8 @@ const ParameterPanel: React.FC = () => {
     const meta: ExperimentMeta = {
       id: `exp_${now.toISOString()}`,
       timestamp: now.toISOString(),
-      // 这里以后可以接入 useVesselStore 拿到 currentKey:
-      // vesselModelKey: currentKey
+      // ⭐ 这里把当前使用的“使用者模型”写进记录里
+      vesselModelKey: STANDARD_MODEL.id,
     };
     return paramsToExperiment(meta, params);
   };
@@ -238,11 +241,17 @@ const ParameterPanel: React.FC = () => {
 
   return (
     <div className="w-full h-full overflow-y-auto space-y-6">
-      {/* 顶部标题 */}
+      {/* 顶部标题 + 当前模型信息 */}
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text白 drop-shadow">
-          Parameter Panel
-        </h2>
+        <div>
+          <h2 className="text-xl font-bold text白 drop-shadow">
+            Parameter Panel
+          </h2>
+          <p className="text-xs text-blue-200 mt-1">
+            Current Model: {STANDARD_MODEL.name} · Curv {STANDARD_MODEL.curvature}° ·
+            Stenosis {STANDARD_MODEL.stenosis}% · Ca {STANDARD_MODEL.calcification}%
+          </p>
+        </div>
         <span className="text-sm text-blue-200">Simulation / Ready</span>
       </div>
 

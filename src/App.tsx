@@ -6,6 +6,8 @@ import {
   VesselId,
 } from "../assets/vessels/centerlines";
 
+// 引入标准模型
+import { STANDARD_MODEL } from "./constants/models";
 
 const TEST_LINE: Vec3[] = Array.from({ length: 80 }, (_, i) => ({
   x: 0,
@@ -21,7 +23,7 @@ const App: React.FC = () => {
 
   return (
     <div className="w-full h-screen bg-slate-900 text-slate-50 flex flex-col">
-      {/* 顶部切换按钮 */}
+      {/* 顶部切换按钮 + 模型信息 */}
       <header className="flex items-center gap-3 px-4 py-2 bg-slate-950 border-b border-slate-800">
         <span className="text-sm text-slate-400">View:</span>
 
@@ -50,7 +52,23 @@ const App: React.FC = () => {
         </button>
 
         <div className="ml-4 text-xs text-slate-400">
-          Current Blood Vessel: <span className="font-semibold">{vesselId}</span>
+          Current Blood Vessel:{" "}
+          <span className="font-semibold">{vesselId}</span>
+        </div>
+
+        {/* 使用者模型信息栏 */}
+        <div className="ml-auto text-xs text-slate-400">
+          Model:{" "}
+          <span className="font-semibold">{STANDARD_MODEL.name}</span>
+          <span className="ml-2">
+            Curv {STANDARD_MODEL.curvature}°
+          </span>
+          <span className="ml-2">
+            Stenosis {STANDARD_MODEL.stenosis}%
+          </span>
+          <span className="ml-2">
+            Ca {STANDARD_MODEL.calcification}%
+          </span>
         </div>
       </header>
 
@@ -63,6 +81,7 @@ const App: React.FC = () => {
           />
         ) : (
           (() => {
+            const wireVesselId: VesselId = "standard_bend";
             const line = getCenterlineForVessel(vesselId);
             console.log(
               "[WireDemo] centerline len =",
@@ -71,14 +90,13 @@ const App: React.FC = () => {
               vesselId
             );
 
-            
             const safeLine = line && line.length >= 3 ? line : TEST_LINE;
 
-            return( 
-              <WireDemo 
-                key={vesselId} 
+            return (
+              <WireDemo
+                key={vesselId}
                 vesselId={vesselId}
-                centerline={safeLine} 
+                centerline={safeLine}
               />
             );
           })()
