@@ -1,14 +1,7 @@
 // src/sim/interfaceAdapter.ts
 import type { ParamsState } from "../state/paramsStore";
-import type {
-  ExperimentRecord,
-  ExperimentMeta,
-} from "./experimentSchema";
+import type { ExperimentRecord, ExperimentMeta } from "./experimentSchema";
 
-/**
- * 把当前面板里的 params 映射成一个 ExperimentRecord，
- * meta 由调用方传入（比如 id / timestamp / vesselModelKey 等）。
- */
 export function paramsToExperiment(
   meta: ExperimentMeta,
   params: ParamsState["params"]
@@ -19,6 +12,7 @@ export function paramsToExperiment(
     vessel: {
       innerDiameterMm: params.vessel.innerDiameter,
       elasticityMPa: params.vessel.elasticity,
+      curvature: params.vessel.curvature, // ✅
     },
     blood: {
       flowVelocityCms: params.blood.flowVelocity,
@@ -33,9 +27,13 @@ export function paramsToExperiment(
     friction: {
       catheterCoeff: params.friction.catheter,
       stentCoeff: params.friction.stent,
+      mu: params.friction.mu, // ✅
     },
     metrics: {
-      forceN: params.display.force,
+      forceN: params.display.force,               // legacy
+      forceMeanN: params.display.forceMean,       // ✅
+      completion01: params.display.completion,    // ✅
+
       pathPoints: params.display.pathPoints,
       iterations: params.display.iterations,
       attempts: params.display.attempts,
@@ -44,17 +42,12 @@ export function paramsToExperiment(
   };
 }
 
-/**
- * 把外部给你的 ExperimentRecord（例如模型算出来的结果）
- * 转回面板使用的 params 结构，方便写入 Zustand。
- */
-export function experimentToParams(
-  rec: ExperimentRecord
-): ParamsState["params"] {
+export function experimentToParams(rec: ExperimentRecord): ParamsState["params"] {
   return {
     vessel: {
       innerDiameter: rec.vessel.innerDiameterMm,
       elasticity: rec.vessel.elasticityMPa,
+      curvature: rec.vessel.curvature ?? 0.25, // ✅ fallback
     },
     blood: {
       flowVelocity: rec.blood.flowVelocityCms,
@@ -69,9 +62,13 @@ export function experimentToParams(
     friction: {
       catheter: rec.friction.catheterCoeff,
       stent: rec.friction.stentCoeff,
+      mu: rec.friction.mu ?? rec.friction.catheterCoeff, // ✅ fallback
     },
     display: {
       force: rec.metrics.forceN,
+      forceMean: rec.metrics.forceMeanN ?? rec.metrics.forceN, // ✅ fallback
+      completion: rec.metrics.completion01 ?? 1,              // ✅ fallback
+
       pathPoints: rec.metrics.pathPoints,
       iterations: rec.metrics.iterations,
       attempts: rec.metrics.attempts,

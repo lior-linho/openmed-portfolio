@@ -3,41 +3,46 @@
 export type DataSource = "simulation" | "phantom" | "clinical";
 
 export interface VesselParamsExt {
-  innerDiameterMm: number;   // 血管内径 (mm)
-  elasticityMPa: number;     // 弹性模量 E (MPa)
+  innerDiameterMm: number;
+  elasticityMPa: number;
+  curvature?: number;          // ✅ simplified curvature index (0–1)
 }
 
 export interface BloodParamsExt {
-  flowVelocityCms: number;   // 血流速度 (cm/s)
-  viscosityCp: number;       // 黏度 (cP)
-  pulsatility: number;       // 0–1
+  flowVelocityCms: number;
+  viscosityCp: number;
+  pulsatility: number;
 }
 
 export interface GuidewireParamsExt {
-  diameterInch: number;      // 导丝直径 (inch)
-  lengthCm: number;          // 导丝长度 (cm)
-  stiffness: number;         // 刚度（无量纲）
+  diameterInch: number;
+  lengthCm: number;
+  stiffness: number;
 }
 
 export interface FrictionParamsExt {
-  catheterCoeff: number;     // 导管摩擦系数
-  stentCoeff: number;        // 支架摩擦系数
+  catheterCoeff: number;
+  stentCoeff: number;
+  mu?: number;                 // ✅ simplified effective friction coefficient
 }
 
 export interface SimulationMetrics {
-  forceN: number;            // 力 (N)
-  pathPoints: number;        // 路径点数
-  iterations: number;        // 迭代步
-  attempts: number;          // 尝试次数
-  patency01: number;         // 通畅度 (0–1)
+  forceN: number;              // legacy / generic force (kept)
+  forceMeanN?: number;         // ✅ mean force used by simplified R
+  completion01?: number;       // ✅ 0/1 success used by simplified C
+
+  pathPoints: number;
+  iterations: number;
+  attempts: number;
+  patency01: number;
 }
 
 export interface ExperimentMeta {
-  id: string;                // 实验/仿真 ID
-  timestamp: string;         // ISO 时间
-  operator?: string;         // 操作者
-  vesselModelKey?: string;   // 使用的血管模型 key (cta_aorta 等)
-  note?: string;             // 备注
+  id: string;
+  timestamp: string;
+  operator?: string;
+  vesselModelKey?: string;
+  note?: string;
 }
 
 export interface ExperimentRecord {

@@ -1,218 +1,263 @@
-import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, Line, Sphere } from '@react-three/drei'
-import * as THREE from 'three'
-import { useMemo, useRef, useEffect, useCallback } from 'react'
-import { useWorkflow } from '../state/workflow'
-import { makeCenterline, clipByProgress, accumulateArcLengths, arcLenBetween, makeXrayCamera } from '../sim/geometry'
-import { ResistanceSampler } from '../sim/ResistanceSampler'
-import { performanceMonitor, measurePerformance } from '../utils/performance'
-import { CameraController } from './CameraController'
-import { StepVisuals } from './StepVisuals'
+// =============================
+// UnifiedScene.tsx (Final Version)
+// =============================
 
-// 将几何体创建移到组件外部，避免重复创建
-const createVesselGeometry = (points: THREE.Vector3[]) => {
-  const curve = new THREE.CatmullRomCurve3(points)
-  return new THREE.TubeGeometry(curve, 300, 0.12, 16, false)
-}
+import { Canvas, useFrame } from "@react-three/fiber";
+import { OrbitControls, Line, Sphere } from "@react-three/drei";
+import * as THREE from "three";
+import { useMemo, useRef, useEffect, useCallback } from "react";
 
+// 状态管理
+import { useWorkflow } from "../state/workflow";
+import { useParamsStore } from "../state/paramsStore";
+
+// 几何 & 相机
+import {
+  makeCenterline,
+  clipByProgress,
+  accumulateArcLengths,
+  arcLenBetween,
+  makeXrayCamera,
+} from "../sim/geometry";
+
+// 阻力模型
+import { ResistanceSampler } from "../sim/ResistanceSampler";
+import { performanceMonitor, measurePerformance } from "../utils/performance";
+
+// 其他组件
+import { CameraController } from "./CameraController";
+import { StepVisuals } from "./StepVisuals";
+
+// ==========================================================
+// 主场景 (Unified Scene)
+// ==========================================================
 export function UnifiedScene() {
-  const points = useMemo(() => makeCenterline(200), [])
-  const { angles, zoom } = useWorkflow()
-  
-  // 根据角度和缩放创建相机配置
+  const points = useMemo(() => makeCenterline(200), []);
+  const { angles, zoom } = useWorkflow();
+
+  // 摄像机配置
   const cameraConfig = useMemo(() => {
-    const aspect = 1.0 // default aspect ratio
-    const camera = makeXrayCamera(angles, aspect)
-    camera.fov = 45 / zoom
-    camera.updateProjectionMatrix()
-    
-    // Debug info
-    console.log('UnifiedScene camera config:', {
-      angles,
-      zoom,
-      position: [camera.position.x, camera.position.y, camera.position.z],
-      fov: camera.fov
-    })
-    
+    const aspect = 1.0;
+    const camera = makeXrayCamera(angles, aspect);
+
+    camera.fov = 45 / zoom;
+    camera.updateProjectionMatrix();
+
     return {
-      position: [camera.position.x, camera.position.y, camera.position.z] as [number, number, number],
-      fov: camera.fov
-    }
-  }, [angles, zoom])
-  
+      position: [
+        camera.position.x,
+        camera.position.y,
+        camera.position.z,
+      ] as [number, number, number],
+      fov: camera.fov,
+    };
+  }, [angles, zoom]);
+
   return (
-    <Canvas 
-      camera={cameraConfig}
-    >
+    <Canvas camera={cameraConfig}>
       <CameraController />
       <SceneContents points={points} />
     </Canvas>
-  )
+  );
 }
 
+// ==========================================================
+// SceneContents - 真正的 3D 主内容
+// ==========================================================
 export function SceneContents({ points }: { points: THREE.Vector3[] }) {
-  const { addPath, setProgress, fluoroMode } = useWorkflow()
-  const cum = useMemo(() => accumulateArcLengths(points), [points])
+  // ===== 从全局参数中读取（关键！） =====
+  const vesselParams = useParamsStore((s) => s.params.vessel);
+  const bloodParams = useParamsStore((s) => s.params.blood);
 
-  // 阻力采样 - 完全解耦的状态管理
-  const vesselRef = useRef<THREE.Mesh>(null!)
-  const samplerRef = useRef<ResistanceSampler>()
-  const resistanceRef = useRef(0)
-  const lastResistanceUpdateRef = useRef(0)
+  const { addPath, setProgress } = useWorkflow();
+  const cum = useMemo(() => accumulateArcLengths(points), [points]);
 
-  // 几何体只创建一次
-  const tube = useMemo(() => createVesselGeometry(points), [points])
+  // ==========================================================
+  // ⚡️ TubeGeometry：根据参数联动血管半径
+  // ==========================================================
+  const tube = useMemo(() => {
+    const curve = new THREE.CatmullRomCurve3(points);
+
+    // mm → world scale (可调整)
+    const radius = vesselParams.innerDiameter * 0.05;
+
+    console.log(
+      "%c[Vessel Update] innerDiameter(mm):",
+      "color: #4ade80; font-weight: bold;",
+      vesselParams.innerDiameter,
+      " → radius:",
+      radius
+    );
+
+    return new THREE.TubeGeometry(curve, 300, radius, 16, false);
+  }, [points, vesselParams.innerDiameter]);
+
+  // ==========================================================
+  // 阻力采样器逻辑（原样保留）
+  // ==========================================================
+  const vesselRef = useRef<THREE.Mesh>(null!);
+  const samplerRef = useRef<ResistanceSampler>();
+  const resistanceRef = useRef(0);
 
   useEffect(() => {
-    const m = vesselRef.current
+    const m = vesselRef.current;
     if (m && !samplerRef.current) {
-      // 更安全的类型断言 - 使用扩展的类型定义
-      const geometry = m.geometry as THREE.BufferGeometry
-      if (geometry.computeBoundsTree) {
-        geometry.computeBoundsTree()
-      }
-      samplerRef.current = new ResistanceSampler(m)
+      const geometry = m.geometry as THREE.BufferGeometry;
+      if ((geometry as any).computeBoundsTree) geometry.computeBoundsTree();
+      samplerRef.current = new ResistanceSampler(m);
     }
     return () => {
-      const m = vesselRef.current
+      const m = vesselRef.current;
       if (m) {
-        const geometry = m.geometry as THREE.BufferGeometry
-        if (geometry.disposeBoundsTree) {
-          geometry.disposeBoundsTree()
-        }
+        const geometry = m.geometry as THREE.BufferGeometry;
+        if ((geometry as any).disposeBoundsTree) geometry.disposeBoundsTree();
       }
-    }
-  }, [])
+    };
+  }, []);
 
-  // 导丝和支架选择变化时立即更新阻力采样器参数
-  const { currentWire, currentStent, step } = useWorkflow()
+  const { currentWire, currentStent, step } = useWorkflow();
   useEffect(() => {
     if (samplerRef.current) {
-      samplerRef.current.updateFromWirePreset(currentWire)
-      samplerRef.current.updateFromStentPreset(currentStent, step)
+      samplerRef.current.updateFromWirePreset(currentWire);
+      samplerRef.current.updateFromStentPreset(currentStent, step);
     }
-  }, [currentWire, currentStent, step])
+  }, [currentWire, currentStent, step]);
 
-  // 阻力采样逻辑 - 使用独立的间隔计时器，完全解耦
-  const updateResistance = useCallback(
-    measurePerformance(() => {
-      const { metrics } = useWorkflow.getState()
-      const pathPoints = points
-      const idx = Math.max(1, Math.min(pathPoints.length - 1, Math.floor(metrics.progress * (pathPoints.length - 1))))
-      const tip = pathPoints[idx] ?? new THREE.Vector3()
-      const prevP = pathPoints[idx - 1] ?? tip
-      const prevPrevP = pathPoints[Math.max(0, idx - 2)] ?? prevP
-      const dir = tip.clone().sub(prevP).normalize()
-      const prevDir = prevP.clone().sub(prevPrevP).normalize()
+  // ==========================================================
+  // 阻力采样 - 受粘度影响
+  // ==========================================================
+  const updateResistance = useCallback(() => {
+    const { metrics } = useWorkflow.getState();
 
-      const res = samplerRef.current?.sample(tip, dir, prevDir, pathPoints, idx, metrics.progress) ?? {R:0,d:1,n:new THREE.Vector3()}
-      resistanceRef.current = res.R
-      lastResistanceUpdateRef.current = performance.now()
-      
-      useWorkflow.setState(s => ({ 
-        metrics: { ...s.metrics, resistance: res.R } 
-      }))
-    }, 'resistanceUpdate'),
-    [points]
-  )
+    const idx = Math.max(
+      1,
+      Math.floor(metrics.progress * (points.length - 1))
+    );
 
-  // 独立的阻力采样计时器 - 20fps，与渲染完全解耦
+    const tip = points[idx];
+    const prev = points[idx - 1] ?? tip;
+
+    const dir = tip.clone().sub(prev).normalize();
+    const prevDir = prev.clone().sub(points[idx - 2] ?? prev).normalize();
+
+    const res =
+      samplerRef.current?.sample(
+        tip,
+        dir,
+        prevDir,
+        points,
+        idx,
+        metrics.progress
+      ) ?? { R: 0 };
+
+    // 粘度增强阻力效果
+    const viscosityFactor = bloodParams.viscosity / 3.5;
+
+    resistanceRef.current = res.R * viscosityFactor;
+
+    useWorkflow.setState((s) => ({
+      metrics: { ...s.metrics, resistance: resistanceRef.current },
+    }));
+  }, [points, bloodParams.viscosity]);
+
   useEffect(() => {
-    const interval = setInterval(updateResistance, 50) // 20fps
-    return () => clearInterval(interval)
-  }, [updateResistance])
+    const timer = setInterval(updateResistance, 50);
+    return () => clearInterval(timer);
+  }, [updateResistance]);
 
-  // 自动推进 - 只处理推进逻辑，阻力采样已解耦
-  const { metrics } = useWorkflow()
-  const progRef = useRef(metrics.progress) // 从当前进度开始，而不是从0开始
-  
-  // 同步进度状态，确保 progRef 与当前进度保持一致
+  // ==========================================================
+  // 自动推进逻辑（受 flowVelocity 影响）
+  // ==========================================================
+  const { metrics } = useWorkflow();
+  const progRef = useRef(metrics.progress);
+
   useEffect(() => {
-    progRef.current = metrics.progress
-  }, [metrics.progress])
-  
-  useFrame(
-    measurePerformance((_, dt) => {
-      const { controlMode, step } = useWorkflow.getState()
-      
-      // 只在自动模式下推进
-      if (controlMode === 'auto') {
-        // 推进速度受阻力影响 - 使用clamp避免负值
-        const resistance = resistanceRef.current
-        const base = step === 'Cross' ? 0.15 : 0.05
-        const slow = Math.max(0, base * (1 - 0.7 * resistance))
-        const nextP = Math.min(1, progRef.current + dt * slow * 0.1)
-        const dL = arcLenBetween(points, cum, progRef.current, nextP)
-        
-        setProgress(nextP)
-        addPath(dL)
-        progRef.current = nextP
-      }
-      
-      // 更新性能监控
-      performanceMonitor.updateFrameRate()
-    }, 'render')
-  )
+    progRef.current = metrics.progress;
+  }, [metrics.progress]);
 
-  // 血管材质 - 在3D幕后视图中始终可见
-  const vesselMaterial = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
-      color: "#7dd3fc",
-      metalness: 0.1,
-      roughness: 0.6,
-      transparent: true,
-      opacity: 0.5,
-      visible: true
-    })
-  }, [])
+  useFrame((_, dt) => {
+    const { controlMode, step } = useWorkflow.getState();
+    if (controlMode !== "auto") return;
 
+    // FlowVelocity → 速度因子
+    const velocityFactor = (bloodParams.flowVelocity - 10) / 20 + 0.5;
+
+    const base = step === "Cross" ? 0.15 : 0.05;
+    const next = progRef.current + dt * base * velocityFactor * (1 - resistanceRef.current);
+
+    const clamped = Math.min(1, next);
+    const dL = arcLenBetween(points, cum, progRef.current, clamped);
+
+    setProgress(clamped);
+    addPath(dL);
+    progRef.current = clamped;
+  });
+
+  // ==========================================================
+  // 渲染内容
+  // ==========================================================
   return (
     <>
       <ambientLight intensity={0.7} />
       <directionalLight position={[3, 5, 2]} intensity={1.2} />
-      
-      <mesh ref={vesselRef} geometry={tube} material={vesselMaterial} />
-      
+
+      {/* 血管（使用联动后的 TubeGeometry） */}
+      <mesh ref={vesselRef} geometry={tube}>
+        <meshStandardMaterial
+          color="#7dd3fc"
+          metalness={0.1}
+          roughness={0.6}
+          transparent
+          opacity={0.45}
+        />
+      </mesh>
+
       <DynamicWire points={points} />
       <WireTip points={points} />
       <StepVisuals points={points} />
+
       <OrbitControls enablePan={false} />
     </>
-  )
+  );
 }
 
+// ==========================================================
+// Dynamic Wire
+// ==========================================================
 function DynamicWire({ points }: { points: THREE.Vector3[] }) {
-  const progress = useWorkflow(s => s.metrics.progress)
-  const wire = useMemo(() => 
-    clipByProgress(points, progress).map(p => p.toArray()), 
+  const progress = useWorkflow((s) => s.metrics.progress);
+
+  const wire = useMemo(
+    () => clipByProgress(points, progress).map((p) => p.toArray()),
     [points, progress]
-  )
-  
-  return (
-    <Line points={wire as [number, number, number][]} lineWidth={4} color="#ffffff" />
-  )
+  );
+
+  return <Line points={wire as any} lineWidth={4} color="#ffffff" />;
 }
 
+// ==========================================================
+// Wire Tip
+// ==========================================================
 function WireTip({ points }: { points: THREE.Vector3[] }) {
-  const progress = useWorkflow(s => s.metrics.progress)
-  const step = useWorkflow(s => s.step)
-  const tipPosition = useMemo(() => {
-    const wirePoints = clipByProgress(points, progress)
-    return wirePoints.length > 0 ? wirePoints[wirePoints.length - 1] : new THREE.Vector3()
-  }, [points, progress])
-  
-  if (step !== 'Cross') return null
+  const progress = useWorkflow((s) => s.metrics.progress);
+  const step = useWorkflow((s) => s.step);
+
+  const tipPos = useMemo(() => {
+    const arr = clipByProgress(points, progress);
+    return arr[arr.length - 1] ?? new THREE.Vector3();
+  }, [points, progress]);
+
+  if (step !== "Cross") return null;
+
   return (
-    <Sphere args={[0.12, 16, 16]} position={tipPosition}>
-      <meshStandardMaterial 
-        color="#ffffff" 
+    <Sphere args={[0.12, 16, 16]} position={tipPos}>
+      <meshStandardMaterial
+        color="#ffffff"
         emissive="#ffffff"
-        emissiveIntensity={0.3}
+        emissiveIntensity={0.35}
         metalness={0.8}
         roughness={0.2}
       />
     </Sphere>
-  )
+  );
 }
-
-// Step visuals moved to dedicated component

@@ -5,6 +5,7 @@ import { create } from "zustand";
 export interface VesselParams {
   innerDiameter: number;   // mm
   elasticity: number;      // MPa
+  curvature: number;       // simplified curvature index, 0–1
 }
 
 export interface BloodParams {
@@ -22,13 +23,21 @@ export interface GuidewireParams {
 export interface FrictionParams {
   catheter: number;
   stent: number;
+  mu: number;              // simplified effective friction coefficient
 }
 
 export interface DisplayParams {
+  // legacy / generic
   force: number;
+
+  // simplified scoring core outputs
+  forceMean: number;       // N
+  completion: number;      // 0/1
+
   pathPoints: number;
   iterations: number;
   attempts: number;
+
   patency: number;         // 0–1
 }
 
@@ -51,6 +60,7 @@ export const useParamsStore = create<ParamsState>()((set) => ({
     vessel: {
       innerDiameter: 3.0,
       elasticity: 2.2,
+      curvature: 0.25, // ✅ default
     },
     blood: {
       flowVelocity: 20,
@@ -65,9 +75,13 @@ export const useParamsStore = create<ParamsState>()((set) => ({
     friction: {
       catheter: 0.12,
       stent: 0.045,
+      mu: 0.12, // ✅ default = catheter as initial approximation
     },
     display: {
       force: 0,
+      forceMean: 0,   // ✅ default
+      completion: 1,  // ✅ default (assume success at start)
+
       pathPoints: 0,
       iterations: 0,
       attempts: 0,
@@ -78,13 +92,12 @@ export const useParamsStore = create<ParamsState>()((set) => ({
   setParam: (path, value) => {
     set((state) => {
       const keys = path.split(".");
-      // 先深拷贝一份 params，保证 Zustand 能检测到变化
       const newParams: any = { ...state.params };
 
       let target = newParams as any;
       for (let i = 0; i < keys.length - 1; i++) {
         const k = keys[i];
-        target[k] = { ...target[k] }; // 逐层复制
+        target[k] = { ...target[k] };
         target = target[k];
       }
       target[keys[keys.length - 1]] = value;
@@ -93,4 +106,3 @@ export const useParamsStore = create<ParamsState>()((set) => ({
     });
   },
 }));
-
