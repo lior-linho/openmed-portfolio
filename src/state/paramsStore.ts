@@ -1,5 +1,7 @@
 // src/state/paramsStore.ts
 import { create } from "zustand";
+import { updateByPath } from "../domain/params/updater";
+import { defaultParams } from "../domain/params/defaults";
 
 /** 各模块参数类型 */
 export interface VesselParams {
@@ -50,59 +52,21 @@ export interface ParamsState {
     friction: FrictionParams;
     display: DisplayParams;
   };
-  /** 通过 "vessel.innerDiameter" 这样的小路径来更新 */
+
+  /**
+   * 通过 "vessel.innerDiameter" 这样的路径来更新参数
+   * 例：setParam("blood.viscosity", 4.2)
+   */
   setParam: (path: string, value: number) => void;
 }
 
-/** 全局参数 store */
+/** 全局参数 store（薄封装，可测逻辑已下沉到 domain） */
 export const useParamsStore = create<ParamsState>()((set) => ({
-  params: {
-    vessel: {
-      innerDiameter: 3.0,
-      elasticity: 2.2,
-      curvature: 0.25, // ✅ default
-    },
-    blood: {
-      flowVelocity: 20,
-      viscosity: 3.5,
-      pulsatility: 0.6,
-    },
-    guidewire: {
-      diameter: 0.02,
-      length: 260,
-      stiffness: 60,
-    },
-    friction: {
-      catheter: 0.12,
-      stent: 0.045,
-      mu: 0.12, // ✅ default = catheter as initial approximation
-    },
-    display: {
-      force: 0,
-      forceMean: 0,   // ✅ default
-      completion: 1,  // ✅ default (assume success at start)
-
-      pathPoints: 0,
-      iterations: 0,
-      attempts: 0,
-      patency: 1.0,
-    },
-  },
+  params: defaultParams,
 
   setParam: (path, value) => {
-    set((state) => {
-      const keys = path.split(".");
-      const newParams: any = { ...state.params };
-
-      let target = newParams as any;
-      for (let i = 0; i < keys.length - 1; i++) {
-        const k = keys[i];
-        target[k] = { ...target[k] };
-        target = target[k];
-      }
-      target[keys[keys.length - 1]] = value;
-
-      return { params: newParams };
-    });
+    set((state) => ({
+      params: updateByPath(state.params, path, value),
+    }));
   },
 }));
