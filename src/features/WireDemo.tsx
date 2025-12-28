@@ -122,15 +122,15 @@ const WireDemo: React.FC<WireDemoProps> = ({
   const [u, setU] = useState(0); 
   const [twist, setTwist] = useState(0); 
 
-  const wireRadius = wireRadiusProp;
+  // 细导丝 + 独立的球头大小
+  const wireRadius = 0.15;   // 导丝半径（细）
+  const tipRadius  = 0.45;   // 球头半径（比导丝粗）
   const forwardSpeed = forwardSpeedProp;
 
-  
   const keys = useRef<Record<string, boolean>>({});
   const [collision, setCollision] = useState<{hit:boolean; clearance:number}>({ hit:false, clearance:0 });
   const overpushRef = useRef(0); 
 
-  
   const centerline =
     centerlineProp && centerlineProp.length >= 3
       ? centerlineProp
@@ -138,7 +138,6 @@ const WireDemo: React.FC<WireDemoProps> = ({
 
   const radiusAt = radiusAtProp ?? builtInRadiusAt;
 
-  
   const threeRef = useRef<{
     renderer?: THREE.WebGLRenderer;
     scene?: THREE.Scene;
@@ -151,7 +150,6 @@ const WireDemo: React.FC<WireDemoProps> = ({
     animId?: number;
   }>({});
 
-  
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => { keys.current[e.key.toLowerCase()] = true; };
     const onKeyUp = (e: KeyboardEvent) => { keys.current[e.key.toLowerCase()] = false; };
@@ -160,7 +158,6 @@ const WireDemo: React.FC<WireDemoProps> = ({
     return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
   }, []);
 
-  
   useEffect(() => {
     const div = mountRef.current!;
     const width = div.clientWidth || 800;
@@ -178,15 +175,21 @@ const WireDemo: React.FC<WireDemoProps> = ({
     camera.position.set(0, 0, 200);
     camera.lookAt(0, 0, 0);
 
-    
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.08;
-controls.enablePan = false;         
-controls.minDistance = 40;          
-controls.maxDistance = 260;         
-controls.target.set(0, 0, 0);       
-controls.update();
+
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+
+    controls.enablePan = true;
+    controls.screenSpacePanning = true;   
+    controls.panSpeed = 0.8;
+
+    controls.minDistance = 40;
+    controls.maxDistance = 260;
+    controls.target.set(0, 0, 0);
+    controls.update();
+
 
     if (cameraPose) {
       camera.position.set(...cameraPose.position);
@@ -195,106 +198,161 @@ controls.update();
     }
     if (zoom) { camera.zoom = zoom; camera.updateProjectionMatrix(); }
 
-    const light1 = new THREE.DirectionalLight(0xffffff, 1.0); light1.position.set(20, 30, -10); scene.add(light1);
-    const amb = new THREE.AmbientLight(0xffffff, 0.35); scene.add(amb);
+    const light1 = new THREE.DirectionalLight(0xffffff, 1.0); 
+    light1.position.set(20, 30, -10); 
+    scene.add(light1);
+    const amb = new THREE.AmbientLight(0xffffff, 0.35); 
+    scene.add(amb);
 
-    
+    // 中心线可视化
     const lineGeom = new THREE.BufferGeometry();
     const linePositions = new Float32Array(centerline.length * 3);
-    centerline.forEach((p, i) => { linePositions[i*3+0]=p.x; linePositions[i*3+1]=p.y; linePositions[i*3+2]=p.z; });
+    centerline.forEach((p, i) => { 
+      linePositions[i*3+0]=p.x; 
+      linePositions[i*3+1]=p.y; 
+      linePositions[i*3+2]=p.z; 
+    });
     lineGeom.setAttribute("position", new THREE.BufferAttribute(linePositions, 3));
-    const line = new THREE.Line(lineGeom, new THREE.LineBasicMaterial({ linewidth: 2, color: 0x6ea8fe }));
+    const line = new THREE.Line(
+      lineGeom, 
+      new THREE.LineBasicMaterial({ linewidth: 2, color: 0x6ea8fe })
+    );
     scene.add(line);
 
-    
-const loader = new GLTFLoader();
-let vesselMesh: THREE.Object3D | null = null;
+    // 血管壳：沿中心线生成一个半透明蓝色 Tube
+    const vesselCurve = new THREE.CatmullRomCurve3(
+      centerline.map((p) => new THREE.Vector3(p.x, p.y, p.z))
+    );
+    const midRadius = radiusAt(centerline, 0.5);
+    const vesselRadius = midRadius * 1.0;
 
+    const vesselGeometry = new THREE.TubeGeometry(
+      vesselCurve,
+      240,
+      vesselRadius,
+      32,
+      false
+    );
 
-const vesselUrl = vesselModelUrls[vesselId];
-
-loader.load(
-  vesselUrl,
-  (gltf) => {
-    vesselMesh = gltf.scene;
-
-    
-    vesselMesh.traverse((obj) => {
-      const mesh = obj as THREE.Mesh;
-      if (mesh.isMesh) {
-        mesh.castShadow = false;
-        mesh.receiveShadow = false;
-      }
+    const vesselMaterial = new THREE.MeshStandardMaterial({
+      color: 0x3b82f6,
+      metalness: 0.1,
+      roughness: 0.5,
+      transparent: true,
+      opacity: 0.18,
+      side: THREE.DoubleSide,
     });
 
-    
-    vesselMesh.scale.set(1000, 1000, 1000);
+    const vesselTube = new THREE.Mesh(vesselGeometry, vesselMaterial);
+    scene.add(vesselTube);
 
-    scene.add(vesselMesh);
-
-    
     if (threeRef.current) {
-      threeRef.current.vesselMesh = vesselMesh;
+      threeRef.current.vesselMesh = vesselTube;
     }
-  },
-  undefined,
-  (err) => {
-    console.error("[WireDemo] failed to load vessel GLB", vesselUrl, err);
-  }
-);
 
+    // 预加载 GLB（目前不加到场景里）
+    const loader = new GLTFLoader();
+    let vesselMesh: THREE.Object3D | null = null;
+    const vesselUrl = vesselModelUrls[vesselId];
 
-    
+    loader.load(
+      vesselUrl,
+      (gltf) => {
+        vesselMesh = gltf.scene;
+
+        vesselMesh.traverse((obj) => {
+          const mesh = obj as THREE.Mesh;
+          if (mesh.isMesh) {
+            mesh.castShadow = false;
+            mesh.receiveShadow = false;
+          }
+        });
+
+        vesselMesh.scale.set(1000, 1000, 1000);
+        // 不再添加到 scene，让 Demo 只看基于中心线的血管壳
+        // scene.add(vesselMesh);
+
+        if (threeRef.current) {
+          threeRef.current.vesselMesh = vesselMesh;
+        }
+      },
+      undefined,
+      (err) => {
+        console.error("[WireDemo] failed to load vessel GLB", vesselUrl, err);
+      }
+    );
+
+    // 导丝本体
     const wireCurvePoints = samplePolyline(centerline, Math.max(0.001, u), 60);
-    const wireCurve = new THREE.CatmullRomCurve3(wireCurvePoints.map(p => new THREE.Vector3(p.x,p.y,p.z)));
-    const wireGeo = new THREE.TubeGeometry(wireCurve, 120, wireRadius, 12, false);
+    const wireCurve = new THREE.CatmullRomCurve3(
+      wireCurvePoints.map(p => new THREE.Vector3(p.x,p.y,p.z))
+    );
+    const wireGeo = new THREE.TubeGeometry(
+      wireCurve,
+      120,
+      wireRadius,
+      12,
+      false
+    );
     const wire = new THREE.Mesh(
       wireGeo,
-      new THREE.MeshStandardMaterial({ color: 0x39e09b, metalness: 0.05, roughness: 0.45 })
+      new THREE.MeshStandardMaterial({ 
+        color: 0x39e09b, 
+        metalness: 0.05, 
+        roughness: 0.45 
+      })
     );
     scene.add(wire);
 
-    
+    // 导丝球头
     const tipPos = getPointOnCenterline(centerline, Math.max(0.001, u));
     const tip = new THREE.Mesh(
-      new THREE.SphereGeometry(wireRadius*1.2, 24, 24),
-      new THREE.MeshStandardMaterial({ color: 0x4ef3b5, metalness: 0.1, roughness: 0.35 })
+      new THREE.SphereGeometry(tipRadius, 24, 24),
+      new THREE.MeshStandardMaterial({ 
+        color: 0x4ef3b5, 
+        metalness: 0.1, 
+        roughness: 0.35 
+      })
     );
     tip.position.set(tipPos.x, tipPos.y, tipPos.z);
     scene.add(tip);
 
-    
     threeRef.current = { 
-      renderer, scene, camera, wire, wireTip: tip, 
+      renderer, 
+      scene, 
+      camera, 
+      wire, 
+      wireTip: tip, 
       vesselMesh: undefined, 
       line, 
       controls
     };
 
-    
     const onResize = () => {
-      const w = div.clientWidth || window.innerWidth; const h = div.clientHeight || 500;
+      const w = div.clientWidth || window.innerWidth; 
+      const h = div.clientHeight || 500;
       renderer.setSize(w, h);
-      camera.aspect = w/h; camera.updateProjectionMatrix();
+      camera.aspect = w/h; 
+      camera.updateProjectionMatrix();
     };
     window.addEventListener("resize", onResize);
 
     return () => {
       window.removeEventListener("resize", onResize);
       renderer.dispose();
-      if (div.contains(renderer.domElement)) div.removeChild(renderer.domElement);
+      if (div.contains(renderer.domElement)) {
+        div.removeChild(renderer.domElement);
+      }
     };
     
   }, [centerline, cameraPose?.position?.join(","), cameraPose?.lookAt?.join(","), zoom]);
 
-  
   useEffect(() => {
     const { renderer, scene, camera, controls } = threeRef.current;
     if (!renderer || !scene || !camera) return;
 
     let animId = 0;
     const step = () => {
-      
       let du = 0;
       if (!paused) {
         if (keys.current["w"] || keys.current["arrowup"]) du += forwardSpeed;
@@ -303,11 +361,9 @@ loader.load(
         if (keys.current["e"]) setTwist(t => t + 0.03);
       }
 
-      
       const effRadius = radiusAt(centerline, u);
       const clearance = effRadius - wireRadius; 
 
-      
       if (du > 0 && clearance <= 0) {
         setCollision({ hit:true, clearance });
         overpushRef.current += 1; 
@@ -320,16 +376,26 @@ loader.load(
         }
       }
 
-      
-      if (overpushRef.current > 60 && state !== RunState.Success) setState(RunState.Fail);
-      if (u > 0.995 && state === RunState.Navigating) setState(RunState.Success);
+      if (overpushRef.current > 60 && state !== RunState.Success) {
+        setState(RunState.Fail);
+      }
+      if (u > 0.995 && state === RunState.Navigating) {
+        setState(RunState.Success);
+      }
 
-      
       const { wire, wireTip } = threeRef.current;
       if (wire && wireTip) {
         const pts = samplePolyline(centerline, Math.max(0.001, u), 80);
-        const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p.x,p.y,p.z)));
-        const newGeo = new THREE.TubeGeometry(curve, 160, wireRadius, 14, false);
+        const curve = new THREE.CatmullRomCurve3(
+          pts.map(p => new THREE.Vector3(p.x,p.y,p.z))
+        );
+        const newGeo = new THREE.TubeGeometry(
+          curve,
+          160,
+          wireRadius,
+          14,
+          false
+        );
         wire.geometry.dispose();
         wire.geometry = newGeo;
 
@@ -339,7 +405,6 @@ loader.load(
       }
 
       controls?.update();
-
       renderer.render(scene, camera);
       animId = requestAnimationFrame(step);
     };
@@ -348,14 +413,21 @@ loader.load(
     return () => cancelAnimationFrame(animId);
   }, [centerline, u, twist, state, paused, forwardSpeed, wireRadius, radiusAt]);
 
-
   useEffect(() => { onProgress?.(u); }, [u, onProgress]);
   useEffect(() => { onStateChange?.(state); }, [state, onStateChange]);
 
-
   const [selectedLine, setSelectedLine] = useState<"straight" | "curved">("curved");
-  useEffect(() => { if (!centerlineProp) setSelectedLine("curved"); }, [centerlineProp]);
-  const resetAll = () => { setState(RunState.Idle); setU(0); setTwist(0); setCollision({ hit:false, clearance:0 }); overpushRef.current = 0; };
+  useEffect(() => { 
+    if (!centerlineProp) setSelectedLine("curved"); 
+  }, [centerlineProp]);
+
+  const resetAll = () => { 
+    setState(RunState.Idle); 
+    setU(0); 
+    setTwist(0); 
+    setCollision({ hit:false, clearance:0 }); 
+    overpushRef.current = 0; 
+  };
 
   return (
     <div className="w-full h-[600px] relative rounded-2xl shadow-lg overflow-hidden bg-slate-900">
@@ -365,8 +437,7 @@ loader.load(
             className="px-2 py-1 rounded bg-slate-800 text-slate-100 border border-slate-700"
             value={selectedLine}
             onChange={(e) => {
-              const val = e.target.value as any;
-              
+              const val = e.target.value as "straight" | "curved";
               if (val === "straight") {
                 (window as any).__demo_centerline__ = STRAIGHT;
               } else {
@@ -378,34 +449,42 @@ loader.load(
             <option value="curved">Curved centerline</option>
             <option value="straight">Straight centerline</option>
           </select>
-          <button onClick={resetAll} className="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white">Reset</button>
+          <button
+            onClick={resetAll}
+            className="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white"
+          >
+            Reset
+          </button>
           <div className="px-2 py-1 rounded bg-slate-800 text-slate-300 text-sm border border-slate-700">
-            State: <span className="font-semibold text-slate-100">{state}</span>
+            State:{" "}
+            <span className="font-semibold text-slate-100">
+              {state}
+            </span>
           </div>
         </div>
       )}
 
-      {/* Collision toast */}
       {collision.hit && (
         <div className="absolute top-3 right-3 z-20 px-3 py-2 rounded bg-rose-600 text-white shadow">
           Contact – advance blocked (clearance {collision.clearance.toFixed(2)})
         </div>
       )}
 
-      {/* Success/Fail banner */}
       {state === RunState.Success && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded bg-emerald-600 text-white shadow text-lg font-semibold">Success ✓</div>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded bg-emerald-600 text-white shadow text-lg font-semibold">
+          Success ✓
+        </div>
       )}
       {state === RunState.Fail && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded bg-rose-600 text-white shadow text-lg font-semibold">Failed ✗</div>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded bg-rose-600 text-white shadow text-lg font-semibold">
+          Failed ✗
+        </div>
       )}
 
-      {/* Help */}
       <div className="absolute bottom-3 left-3 z-20 text-slate-300 text-xs bg-slate-800/60 rounded px-2 py-1">
         Controls: W/S or ↑/↓ advance/withdraw · Q/E twist · Reset to restart
       </div>
 
-      {/* Three.js mount */}
       <div ref={mountRef} className="absolute inset-0" />
     </div>
   );
