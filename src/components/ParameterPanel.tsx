@@ -40,7 +40,10 @@ const Slider: React.FC<SliderProps> = ({
 }) => (
   <div>
     <label className="text-sm text-gray-700">
-      {label}: <span className="font-semibold">{value.toFixed(3)}</span>
+      {label}:{" "}
+      <span className="font-semibold">
+        {Number.isFinite(value) ? value.toFixed(3) : "—"}
+      </span>
     </label>
     <input
       type="range"
@@ -70,26 +73,19 @@ const ParameterPanel: React.FC = () => {
     return paramsToExperiment(meta, params);
   };
 
-  /* =========================================================
-     Run Simulation
-     - Completion C ≡ 1
-     - Mean force normalized to [0, 1] N
-     ========================================================= */
+  /* ===== Run Simulation ===== */
   const runSimulation = () => {
-    /* --- Physical parameters (from panel) --- */
-    const D = params.vessel.innerDiameter;   // mm
-    const kappa = params.vessel.curvature;   // curvature index
-    const S = params.guidewire.stiffness;    // stiffness
-    const mu = params.friction.mu;           // friction coefficient
-    const eta = params.blood.viscosity;      // blood viscosity
+    const D = params.vessel.innerDiameter;
+    const kappa = params.vessel.curvature;
+    const S = params.guidewire.stiffness;
+    const mu = params.friction.mu;
+    const eta = params.blood.viscosity;
 
-    /* --- Fixed physical coefficients (paper-defined) --- */
     const alpha = 0.5;
     const beta = 0.6;
     const gamma = 0.2;
     const delta = 0.1;
 
-    /* --- Raw physical force (unbounded) --- */
     const F_raw =
       1 / Math.max(D, 0.1) +
       alpha * kappa +
@@ -97,35 +93,24 @@ const ParameterPanel: React.FC = () => {
       gamma * mu +
       delta * eta;
 
-    /* --- Reference force (worst-case normalization) --- */
     const F_ref =
-      1 / 1.5 +        // D_min
-      0.5 * 1 +        // kappa_max
-      0.6 * 100 * 1 +  // S_max * kappa_max
-      0.2 * 0.25 +     // mu_max
-      0.1 * 4.0;       // eta_max
+      1 / 1.5 +
+      0.5 * 1 +
+      0.6 * 100 * 1 +
+      0.2 * 0.25 +
+      0.1 * 4.0;
 
-    /* --- Normalized mean force in [0, 1] N --- */
     const forceMean = Math.min(1, F_raw / F_ref);
-
-    /* --- Completion fixed --- */
     const completion = 1;
 
-    /* --- Geometric patency G --- */
     const G =
       0.6 * Math.min(D / 5.5, 1) +
       0.4 * (1 - Math.min(Math.max(kappa, 0), 1));
 
-    /* --- Resistance score R (already normalized) --- */
     const R = 1 - forceMean;
 
-    /* --- Final patency score --- */
-    const patency = Math.max(
-      0,
-      Math.min(1, 0.5 * G + 0.3 * R + 0.2)
-    );
+    const patency = Math.max(0, Math.min(1, 0.5 * G + 0.3 * R + 0.2));
 
-    /* --- Write back to store --- */
     useParamsStore.setState((state) => ({
       params: {
         ...state.params,
@@ -162,9 +147,10 @@ const ParameterPanel: React.FC = () => {
       ["Inner Diameter D (mm)", p.vessel.innerDiameterMm],
       ["Curvature κ", p.vessel.curvature],
       ["Guidewire Stiffness S", p.guidewire.stiffness],
+      ["Guidewire Advance Speed (cm/s)", p.guidewire.advanceSpeedCms],
       ["Friction μ", p.friction.mu],
       ["Viscosity η", p.blood.viscosityCp],
-      ["Mean Force F_mean (normalized)", p.metrics.forceMeanN],
+      ["Mean Force F_mean", p.metrics.forceMeanN],
       ["Patency", p.metrics.patency01],
     ];
 
@@ -184,16 +170,14 @@ const ParameterPanel: React.FC = () => {
     const p = rec;
 
     const text =
-      `The completion term was fixed to unity (C = 1). ` +
+      `The guidewire advance speed was set to ${p.guidewire.advanceSpeedCms?.toFixed(2)} cm/s. ` +
       `The mean guidewire advancement force was computed as ` +
-      `F_raw = 1/D + 0.5·κ + 0.6·S·κ + 0.2·μ + 0.1·η, ` +
-      `and normalized by a reference force to ensure F_mean ∈ [0,1]. ` +
+      `F_raw = 1/D + 0.5·κ + 0.6·S·κ + 0.2·μ + 0.1·η. ` +
       `Parameters: D=${p.vessel.innerDiameterMm.toFixed(2)} mm, ` +
       `κ=${p.vessel.curvature?.toFixed(2)}, ` +
       `S=${p.guidewire.stiffness}, ` +
       `μ=${p.friction.mu?.toFixed(3)}, ` +
-      `η=${p.blood.viscosityCp.toFixed(2)}. ` +
-      `Patency=${(p.metrics.patency01 * 100).toFixed(1)}%.`;
+      `η=${p.blood.viscosityCp.toFixed(2)}.`;
 
     await navigator.clipboard.writeText(text);
     alert("Citation text copied.");
@@ -233,6 +217,17 @@ const ParameterPanel: React.FC = () => {
           step={1}
           onChange={(v) => setParam("guidewire.stiffness", v)}
         />
+
+        {/* ✅ 新增：推进速度（唯一速度源） */}
+        <Slider
+          label="Guidewire Advance Speed (cm/s)"
+          value={params.guidewire.advanceSpeed ?? 2.0}
+          min={0.5}
+          max={10}
+          step={0.1}
+          onChange={(v) => setParam("guidewire.advanceSpeed", v)}
+        />
+
         <Slider
           label="Friction Coefficient μ"
           value={params.friction.mu}

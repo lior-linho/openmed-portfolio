@@ -16,6 +16,7 @@ export const defaultGuidewire: GuidewireParams = {
   diameter: 0.02,
   length: 260,
   stiffness: 60,
+  advanceSpeed: 2.0,
 };
 
 export const defaultFriction: FrictionParams = {

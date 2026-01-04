@@ -23,6 +23,7 @@ export function paramsToExperiment(
       diameterInch: params.guidewire.diameter,
       lengthCm: params.guidewire.length,
       stiffness: params.guidewire.stiffness,
+      advanceSpeedCms: params.guidewire.advanceSpeed,
     },
     friction: {
       catheterCoeff: params.friction.catheter,
@@ -58,6 +59,7 @@ export function experimentToParams(rec: ExperimentRecord): ParamsState["params"]
       diameter: rec.guidewire.diameterInch,
       length: rec.guidewire.lengthCm,
       stiffness: rec.guidewire.stiffness,
+      advanceSpeed: rec.guidewire.advanceSpeedCms ?? 2.0,
     },
     friction: {
       catheter: rec.friction.catheterCoeff,

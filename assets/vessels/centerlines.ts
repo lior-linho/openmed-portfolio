@@ -1,22 +1,21 @@
-import type { Vec3 } from "../../src/features/WireDemo";
+// assets/vessels/centerlines.ts
+import type { Vec3 } from "../../src/types/geom";
 
 import curvedJson from "./vessel_curved_centerline.json";
 import straightJson from "./vessel_straight_centerline.json";
 import bifurcationJson from "./vessel_bifurcation_centerline.json";
 
 /* ============================================================
-    1) 血管 ID（新增一个 standard_bend）
+    1) VesselId 统一定义（新增 standard_bend）
 ============================================================ */
 export type VesselId =
   | "cta_aorta"
   | "coronary_lad"
   | "renal_demo"
-  | "standard_bend";   // ← 新增：标准弯（来自 research）
-
-
+  | "standard_bend";
 
 /* ============================================================
-    2) JSON → Vec3[] 工具函数（你的原逻辑）
+    2) JSON → Vec3[] 工具
 ============================================================ */
 export function normalizeJsonToVec3Array(raw: any, scale = 1000): Vec3[] {
   if (!raw) return [];
@@ -43,25 +42,21 @@ export function normalizeJsonToVec3Array(raw: any, scale = 1000): Vec3[] {
 }
 
 /* ============================================================
-    3) 现有血管（JSON 提供）
+    3) JSON centerlines
 ============================================================ */
 const CURVED_CENTERLINE: Vec3[] = normalizeJsonToVec3Array(curvedJson);
 const STRAIGHT_CENTERLINE: Vec3[] = normalizeJsonToVec3Array(straightJson);
 const BIFURCATION_CENTERLINE: Vec3[] = normalizeJsonToVec3Array(bifurcationJson);
 
-
-
 /* ============================================================
-    4) ⭐ 新增：标准弯曲血管（来自 research 的 makeCenterline）
+    4) standard_bend（procedural）
 ============================================================ */
-
 export function makeStandardBendCenterline(samples = 200): Vec3[] {
   const pts: Vec3[] = [];
 
   for (let i = 0; i < samples; i++) {
     const t = i / (samples - 1);
 
-    // 直接搬运 research 的数学公式
     const x = t * 3 - 1.5;
     const y = Math.sin(t * Math.PI * 1.5) * 0.4;
     const z = Math.cos(t * Math.PI) * 0.2;
@@ -69,33 +64,38 @@ export function makeStandardBendCenterline(samples = 200): Vec3[] {
     pts.push({ x, y, z });
   }
 
-  return pts.map(p => ({
-    x: p.x * 100,    // scale 保持和其它血管类似大小（默认 JSON ×1000 太大，这里乘100更合适）
+  // 尺寸调整（让它和你的 demo 视觉尺度接近）
+  return pts.map((p) => ({
+    x: p.x * 100,
     y: p.y * 100,
-    z: p.z * 100
+    z: p.z * 100,
   }));
 }
 
-
-
 /* ============================================================
-    5) 返回血管中心线（接入新的 standard_bend）
+    5) 统一出口：centerline getter
 ============================================================ */
 export function getCenterlineForVessel(id: VesselId): Vec3[] {
   switch (id) {
     case "cta_aorta":
       return CURVED_CENTERLINE;
-
     case "coronary_lad":
       return STRAIGHT_CENTERLINE;
-
     case "renal_demo":
       return BIFURCATION_CENTERLINE;
-
-    case "standard_bend":               // ← ⭐ 新增的血管
+    case "standard_bend":
       return makeStandardBendCenterline();
-
     default:
       return CURVED_CENTERLINE;
   }
 }
+
+/* ============================================================
+    6) 可选：统一 GLB URL（注意：standard_bend 没有 glb）
+============================================================ */
+export const VESSEL_GLB_URLS: Partial<Record<VesselId, string>> = {
+  cta_aorta: "/assets/vessels/cta_aorta.glb",
+  coronary_lad: "/assets/vessels/coronary_LAD.glb",
+  renal_demo: "/assets/vessels/renal_demo.glb",
+  // standard_bend: (no glb)
+};

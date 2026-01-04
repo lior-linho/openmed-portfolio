@@ -20,6 +20,7 @@ export interface GuidewireParams {
   diameter: number;        // inch
   length: number;          // cm
   stiffness: number;       // arbitrary 10–100
+  advanceSpeed: number;
 }
 
 export interface FrictionParams {

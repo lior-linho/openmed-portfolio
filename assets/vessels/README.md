@@ -14,3 +14,4 @@ All models were procedurally generated in Blender using Python automation (`scri
 **Radius:** 2 mm  
 **Lengths:** 8–12 cm  
 **Export format:** glTF (.glb) + JSON centerline
+

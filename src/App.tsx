@@ -1,13 +1,10 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import DualViewPage from "./components/DualViewPage";
-import WireDemo, { Vec3 } from "./features/WireDemo";
-import {
-  getCenterlineForVessel,
-  VesselId,
-} from "../assets/vessels/centerlines";
-
-// 引入标准模型
+import type { Vec3 } from "./types/geom";
+import ParameterPanel from "./components/ParameterPanel";
+import { getCenterlineForVessel, VesselId } from "../assets/vessels/centerlines";
 import { STANDARD_MODEL } from "./constants/models";
+import WireDemo from "./features/WireDemo";
 
 const TEST_LINE: Vec3[] = Array.from({ length: 80 }, (_, i) => ({
   x: 0,
@@ -21,10 +18,34 @@ const App: React.FC = () => {
   const [mode, setMode] = useState<Mode>("dual");
   const [vesselId, setVesselId] = useState<VesselId>("cta_aorta");
 
+  const safeLine = useMemo(() => {
+    const line = getCenterlineForVessel(vesselId);
+    console.log("[WireDemo] centerline len =", line?.length, "for", vesselId);
+    return line && line.length >= 3 ? line : TEST_LINE;
+  }, [vesselId]);
+
   return (
-    <div className="w-full h-screen bg-slate-900 text-slate-50 flex flex-col">
+    <div
+      className="w-full h-screen bg-slate-900 text-slate-50"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        width: "100%",
+        overflow: "hidden",
+      }}
+    >
       {/* 顶部切换按钮 + 模型信息 */}
-      <header className="flex items-center gap-3 px-4 py-2 bg-slate-950 border-b border-slate-800">
+      <header
+        className="bg-slate-950 border-b border-slate-800"
+        style={{
+          flex: "0 0 auto",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "8px 16px",
+        }}
+      >
         <span className="text-sm text-slate-400">View:</span>
 
         <button
@@ -56,50 +77,71 @@ const App: React.FC = () => {
           <span className="font-semibold">{vesselId}</span>
         </div>
 
-        {/* 使用者模型信息栏 */}
         <div className="ml-auto text-xs text-slate-400">
-          Model:{" "}
-          <span className="font-semibold">{STANDARD_MODEL.name}</span>
-          <span className="ml-2">
-            Curv {STANDARD_MODEL.curvature}°
-          </span>
-          <span className="ml-2">
-            Stenosis {STANDARD_MODEL.stenosis}%
-          </span>
-          <span className="ml-2">
-            Ca {STANDARD_MODEL.calcification}%
-          </span>
+          Model: <span className="font-semibold">{STANDARD_MODEL.name}</span>
+          <span className="ml-2">Curv {STANDARD_MODEL.curvature}°</span>
+          <span className="ml-2">Stenosis {STANDARD_MODEL.stenosis}%</span>
+          <span className="ml-2">Ca {STANDARD_MODEL.calcification}%</span>
         </div>
       </header>
 
       {/* 主内容区域 */}
-      <main className="flex-1 overflow-hidden">
+      <main
+        style={{
+          flex: "1 1 auto",
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
         {mode === "dual" ? (
           <DualViewPage
             vesselId={vesselId}
             onVesselChange={(id) => setVesselId(id as VesselId)}
           />
         ) : (
-          (() => {
-            const wireVesselId: VesselId = "standard_bend";
-            const line = getCenterlineForVessel(vesselId);
-            console.log(
-              "[WireDemo] centerline len =",
-              line?.length,
-              "for",
-              vesselId
-            );
+          // ✅ 强制左右布局：inline style 兜底，不怕 CSS 覆盖
+          <div
+            className="p-3"
+            style={{
+              height: "100%",
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "row",
+              gap: 12,
+              overflow: "hidden",
+            }}
+          >
+            {/* 左：Wire demo */}
+            <div
+              style={{
+                flex: "1 1 auto",
+                minWidth: 0,
+                minHeight: 0,
+                overflow: "hidden",
+                borderRadius: 16,
+                border: "4px solid rgba(255,255,255,0.18)",
+              }}
+              className="bg-slate-950/40"
+            >
+              <WireDemo key={vesselId} vesselId={vesselId} centerline={safeLine} />
+            </div>
 
-            const safeLine = line && line.length >= 3 ? line : TEST_LINE;
-
-            return (
-              <WireDemo
-                key={vesselId}
-                vesselId={vesselId}
-                centerline={safeLine}
-              />
-            );
-          })()
+            {/* 右：ParameterPanel 固定宽度 */}
+            <aside
+              style={{
+                width: 360,
+                minWidth: 360,
+                maxWidth: 360,
+                height: "100%",
+                minHeight: 0,
+                overflow: "auto",
+                borderRadius: 16,
+                background: "rgba(0,0,0,0.15)",
+              }}
+            >
+              <ParameterPanel />
+            </aside>
+          </div>
         )}
       </main>
     </div>
