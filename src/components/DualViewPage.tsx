@@ -73,7 +73,7 @@ export default function DualViewPage({ vesselId, onVesselChange }: DualViewPageP
   // 读面板速度（cm/s）
   const advanceSpeedCms = useParamsStore((s) => s.params.guidewire.advanceSpeed ?? 2.0);
 
-  // workflow 的状态（注意：推进循环里我们不用这些值做闭包，而用 getState 读最新）
+  // workflow 状态（显示用）
   const controlMode = useWorkflow((s) => s.controlMode); // 'auto' | 'manual'
   const paused = useWorkflow((s) => s.paused);
   const progress = useWorkflow((s) => s.metrics.progress);
@@ -99,8 +99,6 @@ export default function DualViewPage({ vesselId, onVesselChange }: DualViewPageP
   const effectiveId: VesselId = (currentKey as VesselId) || vesselId;
   const centerline = getCenterlineForVessel(effectiveId) as unknown as Vec3[];
 
-  console.log("[DualView] centerline len =", centerline?.length, "for", effectiveId);
-
   // 预计算弧长
   const cum = useMemo(() => {
     if (!centerline || centerline.length < 2) return [0];
@@ -109,19 +107,18 @@ export default function DualViewPage({ vesselId, onVesselChange }: DualViewPageP
 
   const totalLen = cum[cum.length - 1] || 1;
 
-  // ✅ 切换血管时：重置进度（不然你切完还在100%）
+  // ✅ 切换血管时：重置 workflow + sim（避免切完还在100%）
   const lastVesselRef = useRef<string | null>(null);
   useEffect(() => {
     if (lastVesselRef.current !== effectiveId) {
       lastVesselRef.current = effectiveId;
 
-      // 只重置 progress/pathLength（不动其它指标）
       const wf = useWorkflow.getState();
       wf.setProgress(0);
-      // pathLength 没有 setPathLength，就用 reset() 也行，但会重置很多东西
-      // 如果你想只清 pathLength，可以在 workflow 里加一个 setPathLength(0)
-      // 这里用“减回去”的方式不安全，所以不强行改。
-      // 你要清 pathLength 的话，我给你下一步加一个 action。
+
+      const ps = useParamsStore.getState();
+      ps.setSimProgress(0);
+      ps.setSimRunning(false);
     }
   }, [effectiveId]);
 
@@ -147,7 +144,7 @@ export default function DualViewPage({ vesselId, onVesselChange }: DualViewPageP
       // ✅ 只有 auto 且没暂停 且还没到头 才推进
       if (isAuto && !isPaused && curProgress < 1) {
         const speedCms = ps.params.guidewire.advanceSpeed ?? 2.0; // 最新速度
-        const speedWorldPerSec = speedCms * 10; // cm/s -> mm/s（如果你的世界单位不是mm也没关系，反正一致）
+        const speedWorldPerSec = speedCms * 10; // cm/s -> mm/s（世界单位若不是mm也无所谓，只要一致）
         const du = (speedWorldPerSec / totalLen) * dt;
 
         const next = Math.max(0, Math.min(1, curProgress + du));
@@ -155,6 +152,12 @@ export default function DualViewPage({ vesselId, onVesselChange }: DualViewPageP
         const dL = arcLenBetween(centerline, cum, curProgress, next);
         wf.setProgress(next);
         wf.addPath(dL);
+
+        // ✅ 核心：把顶部 progress 同步给面板 sim.progress（两者速度一致）
+        ps.setSimProgress(next);
+
+        // ✅ 到 100% 自动结束 running（否则面板一直显示 running）
+        if (next >= 1) ps.setSimRunning(false);
       }
 
       rafRef.current = requestAnimationFrame(tick);
@@ -172,49 +175,57 @@ export default function DualViewPage({ vesselId, onVesselChange }: DualViewPageP
   return (
     <div className="dv-root">
       <div className="dv-toolbar">
-  <label>Vessel Model:</label>
-  <select
-    value={currentKey || ""}
-    onChange={(e) => setCurrent(e.target.value as VesselId)}
-  >
-    {models.map((m) => (
-      <option key={m.key} value={m.key}>
-        {m.name}
-      </option>
-    ))}
-  </select>
+        <label>Vessel Model:</label>
+        <select value={currentKey || ""} onChange={(e) => setCurrent(e.target.value as VesselId)}>
+          {models.map((m) => (
+            <option key={m.key} value={m.key}>
+              {m.name}
+            </option>
+          ))}
+        </select>
 
-  {/* ✅ Progress 控制按钮 */}
-  <button
-    onClick={() => useWorkflow.getState().setControlMode("auto")}
-    className="dv-btn"
-    title="Start auto progress"
-  >
-    ▶ Start
-  </button>
+        {/* ✅ Progress 控制按钮（同步 sim 状态） */}
+        <button
+          onClick={() => {
+            useWorkflow.getState().setControlMode("auto");
+            useParamsStore.getState().setSimRunning(true);
+          }}
+          className="dv-btn"
+          title="Start auto progress"
+        >
+          ▶ Start
+        </button>
 
-  <button
-    onClick={() => useWorkflow.getState().setControlMode("manual")}
-    className="dv-btn"
-    title="Stop (manual)"
-  >
-    ⏹ Stop
-  </button>
+        <button
+          onClick={() => {
+            useWorkflow.getState().setControlMode("manual");
+            useParamsStore.getState().setSimRunning(false);
+          }}
+          className="dv-btn"
+          title="Stop (manual)"
+        >
+          ⏹ Stop
+        </button>
 
-  <button
-    onClick={() => useWorkflow.getState().setProgress(0)}
-    className="dv-btn"
-    title="Reset progress"
-  >
-    ↺ Reset
-  </button>
+        <button
+          onClick={() => {
+            useWorkflow.getState().setProgress(0);
+            const ps = useParamsStore.getState();
+            ps.setSimProgress(0);
+            ps.setSimRunning(false);
+          }}
+          className="dv-btn"
+          title="Reset progress"
+        >
+          ↺ Reset
+        </button>
 
-  {/* 你原来的状态显示 */}
-  <span style={{ marginLeft: 12, opacity: 0.8 }}>
-    mode: {controlMode} · paused: {String(paused)} · speed: {advanceSpeedCms.toFixed(2)} cm/s · progress: {(progress * 100).toFixed(1)}%
-  </span>
-</div>
-
+        {/* 状态显示 */}
+        <span style={{ marginLeft: 12, opacity: 0.8 }}>
+          mode: {controlMode} · paused: {String(paused)} · speed: {advanceSpeedCms.toFixed(2)} cm/s · progress:{" "}
+          {(progress * 100).toFixed(1)}%
+        </span>
+      </div>
 
       <div className="dv-main-grid">
         <div className="dv-pane">
@@ -227,7 +238,6 @@ export default function DualViewPage({ vesselId, onVesselChange }: DualViewPageP
 
         <div className="dv-params">
           <ParameterPanel />
-          {/* 你现在要控制“什么时候跑”：去 ParameterPanel 加一个按钮切 controlMode auto/manual 最合适 */}
         </div>
       </div>
     </div>

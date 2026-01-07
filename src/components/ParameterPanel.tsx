@@ -1,4 +1,5 @@
-import React from "react";
+// src/components/ParameterPanel.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import { useParamsStore } from "../state/paramsStore";
 import { paramsToExperiment } from "../sim/interfaceAdapter";
 import type { ExperimentMeta } from "../sim/experimentSchema";
@@ -30,20 +31,11 @@ const Card: React.FC<CardProps> = ({ title, subtitle, children }) => (
   </div>
 );
 
-const Slider: React.FC<SliderProps> = ({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}) => (
+const Slider: React.FC<SliderProps> = ({ label, value, min, max, step, onChange }) => (
   <div>
     <label className="text-sm text-gray-700">
       {label}:{" "}
-      <span className="font-semibold">
-        {Number.isFinite(value) ? value.toFixed(3) : "—"}
-      </span>
+      <span className="font-semibold">{Number.isFinite(value) ? value.toFixed(3) : "—"}</span>
     </label>
     <input
       type="range"
@@ -63,6 +55,14 @@ const ParameterPanel: React.FC = () => {
   const params = useParamsStore((s) => s.params);
   const setParam = useParamsStore((s) => s.setParam);
 
+  // ✅ sim state in store（由 WireDemo 的 onProgress 驱动）
+  const simProgress = useParamsStore((s) => s.sim.progress);
+  const simRunning = useParamsStore((s) => s.sim.running);
+  const setSimRunning = useParamsStore((s) => s.setSimRunning);
+
+  // ✅ only show results after 100%
+  const [showResults, setShowResults] = useState(false);
+
   /* ===== Build Experiment Record ===== */
   const buildExperimentRecord = () => {
     const now = new Date();
@@ -73,8 +73,8 @@ const ParameterPanel: React.FC = () => {
     return paramsToExperiment(meta, params);
   };
 
-  /* ===== Run Simulation ===== */
-  const runSimulation = () => {
+  /* ===== Compute metrics (do NOT write to store until 100%) ===== */
+  const computeMetrics = useMemo(() => {
     const D = params.vessel.innerDiameter;
     const kappa = params.vessel.curvature;
     const S = params.guidewire.stiffness;
@@ -86,43 +86,51 @@ const ParameterPanel: React.FC = () => {
     const gamma = 0.2;
     const delta = 0.1;
 
-    const F_raw =
-      1 / Math.max(D, 0.1) +
-      alpha * kappa +
-      beta * S * kappa +
-      gamma * mu +
-      delta * eta;
-
-    const F_ref =
-      1 / 1.5 +
-      0.5 * 1 +
-      0.6 * 100 * 1 +
-      0.2 * 0.25 +
-      0.1 * 4.0;
+    const F_raw = 1 / Math.max(D, 0.1) + alpha * kappa + beta * S * kappa + gamma * mu + delta * eta;
+    const F_ref = 1 / 1.5 + 0.5 * 1 + 0.6 * 100 * 1 + 0.2 * 0.25 + 0.1 * 4.0;
 
     const forceMean = Math.min(1, F_raw / F_ref);
     const completion = 1;
 
-    const G =
-      0.6 * Math.min(D / 5.5, 1) +
-      0.4 * (1 - Math.min(Math.max(kappa, 0), 1));
-
+    const G = 0.6 * Math.min(D / 5.5, 1) + 0.4 * (1 - Math.min(Math.max(kappa, 0), 1));
     const R = 1 - forceMean;
-
     const patency = Math.max(0, Math.min(1, 0.5 * G + 0.3 * R + 0.2));
+
+    return { forceMean, completion, patency };
+  }, [params]);
+
+  /* ===== Run Simulation =====
+     ✅ 关键：不再 setInterval / 不再 resetSim / 不再清零 progress
+     ✅ progress 完全由 WireDemo onProgress(u) 同步写入 store
+     ✅ 这个按钮只是“开始等待本次导丝推进到 100% 后再显示结果”
+  */
+  const runSimulation = () => {
+    setShowResults(false);
+
+    // 进入 running 状态：UI 显示 waiting
+    setSimRunning(true);
+  };
+
+  /* ===== 当 progress 到 100%：写入结果 + 解锁显示 ===== */
+  useEffect(() => {
+    if (!simRunning) return;
+    if (simProgress < 1) return;
 
     useParamsStore.setState((state) => ({
       params: {
         ...state.params,
         display: {
           ...state.params.display,
-          forceMean,
-          completion,
-          patency,
+          forceMean: computeMetrics.forceMean,
+          completion: computeMetrics.completion,
+          patency: computeMetrics.patency,
         },
       },
     }));
-  };
+
+    setShowResults(true);
+    setSimRunning(false);
+  }, [simProgress, simRunning, computeMetrics, setSimRunning]);
 
   /* ===== Export JSON ===== */
   const handleExportJson = () => {
@@ -184,10 +192,9 @@ const ParameterPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-bold text-white">
-        Physical Patency Simulation Panel
-      </h2>
+    // ✅ 给底部 sticky 操作区留空间
+    <div className="relative h-full min-h-0 overflow-y-auto space-y-6 pb-40">
+      <h2 className="text-xl font-bold text-white">Physical Patency Simulation Panel</h2>
 
       <Card title="Vessel Geometry">
         <Slider
@@ -218,7 +225,6 @@ const ParameterPanel: React.FC = () => {
           onChange={(v) => setParam("guidewire.stiffness", v)}
         />
 
-        {/* ✅ 新增：推进速度（唯一速度源） */}
         <Slider
           label="Guidewire Advance Speed (cm/s)"
           value={params.guidewire.advanceSpeed ?? 2.0}
@@ -249,39 +255,57 @@ const ParameterPanel: React.FC = () => {
         />
       </Card>
 
-      <Card title="Results">
-        <p>Mean Force F_mean (0–1): {params.display.forceMean.toFixed(3)}</p>
-        <p>Patency: {(params.display.patency * 100).toFixed(1)}%</p>
+      <Card title="Simulation Progress" subtitle="Progress is synchronized with guidewire (WireDemo)">
+        <p className="text-sm text-gray-700">
+          Progress: <span className="font-semibold">{Math.round(simProgress * 100)}%</span>
+          {simRunning ? <span className="ml-2 text-xs text-gray-500">(running)</span> : null}
+        </p>
+        <div className="w-full h-2 bg-gray-200 rounded mt-2 overflow-hidden">
+          <div className="h-2 bg-blue-600" style={{ width: `${Math.round(simProgress * 100)}%` }} />
+        </div>
       </Card>
 
-      <button
-        onClick={runSimulation}
-        className="w-full py-3 bg-blue-600 text-white rounded-xl"
-      >
-        ▶ Run Simulation
-      </button>
+      <Card title="Results">
+        {showResults ? (
+          <>
+            <p>Mean Force F_mean (0–1): {params.display.forceMean.toFixed(3)}</p>
+            <p>Patency: {(params.display.patency * 100).toFixed(1)}%</p>
+          </>
+        ) : (
+          <p className="text-gray-600">
+            {simRunning ? "Waiting for guidewire progress to reach 100%..." : "Click Run Simulation to compute results."}
+          </p>
+        )}
+      </Card>
 
-      <div className="flex gap-2">
-        <button
-          onClick={handleExportJson}
-          className="flex-1 py-2 bg-blue-500 text-white rounded-xl"
-        >
-          Export JSON
-        </button>
-        <button
-          onClick={handleExportCsv}
-          className="flex-1 py-2 bg-cyan-500 text-white rounded-xl"
-        >
-          Export CSV
-        </button>
+      {/* ✅ 底部操作区 sticky */}
+      <div className="sticky bottom-0 left-0 right-0 pt-3">
+        <div className="rounded-2xl border border-white/25 bg-slate-950/70 backdrop-blur px-3 py-3 space-y-2 shadow-xl">
+          <button
+            onClick={runSimulation}
+            disabled={simRunning}
+            className={
+              "w-full py-3 rounded-xl " +
+              (simRunning ? "bg-blue-400 text-white/80 cursor-not-allowed" : "bg-blue-600 text-white")
+            }
+          >
+            ▶ Run Simulation
+          </button>
+
+          <div className="flex gap-2">
+            <button onClick={handleExportJson} className="flex-1 py-2 bg-blue-500 text-white rounded-xl">
+              Export JSON
+            </button>
+            <button onClick={handleExportCsv} className="flex-1 py-2 bg-cyan-500 text-white rounded-xl">
+              Export CSV
+            </button>
+          </div>
+
+          <button onClick={handleCopyCitation} className="w-full py-2 border border-white/40 text-white rounded-xl">
+            Copy Citation Text
+          </button>
+        </div>
       </div>
-
-      <button
-        onClick={handleCopyCitation}
-        className="w-full py-2 border rounded-xl"
-      >
-        Copy Citation Text
-      </button>
     </div>
   );
 };
