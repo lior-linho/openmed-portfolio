@@ -1,51 +1,189 @@
-/* ======== 全局场景：深色科技主题 ======== */
+/* ======== Global: dark medical console theme ======== */
 .dv-root {
   display: flex;
   flex-direction: column;
   height: 100vh;
 
-  background: #0c0c0f;  /* 深黑带蓝色底 */
+  /* slightly blue-tinted near-black */
+  background: radial-gradient(1200px 700px at 35% 20%, rgba(40, 70, 140, 0.22), transparent 55%),
+              radial-gradient(900px 600px at 70% 60%, rgba(20, 120, 200, 0.10), transparent 60%),
+              #0b0c10;
   color: white;
   font-family: "Inter", "SF Pro Display", Arial, sans-serif;
 }
 
-/* ======== 顶部工具栏 ======== */
+/* ======== Top toolbar (glass) ======== */
 .dv-toolbar {
-  padding: 10px 16px;
-  background: rgba(20, 20, 30, 0.8);
-  backdrop-filter: blur(10px);
+  padding: 10px 14px;
+  background: rgba(10, 12, 18, 0.65);
+  backdrop-filter: blur(12px);
 
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
-  gap: 8px;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-/* 3D | 2D | Panel 布局 */
+.dv-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dv-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  opacity: 0.95;
+}
+
+/* toolbar field */
+.dv-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dv-label {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  opacity: 0.78;
+}
+
+/* select */
+.dv-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  cursor: pointer;
+  outline: none;
+}
+
+.dv-select:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.dv-select:focus {
+  border-color: rgba(120, 200, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(120, 200, 255, 0.18);
+}
+
+/* actions */
+.dv-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* buttons */
+.dv-btn {
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease, border-color 0.15s ease;
+}
+
+.dv-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.dv-btn:active {
+  transform: translateY(1px);
+}
+
+/* primary */
+.dv-btn-primary {
+  border-color: rgba(100, 210, 255, 0.35);
+  background: rgba(40, 160, 220, 0.22);
+}
+
+.dv-btn-primary:hover {
+  background: rgba(40, 160, 220, 0.30);
+  border-color: rgba(100, 210, 255, 0.50);
+}
+
+/* status chip + metrics */
+.dv-chip {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(220, 245, 255, 0.95);
+}
+
+.dv-metric {
+  font-size: 12px;
+  opacity: 0.78;
+}
+
+/* ======== Main grid: 3D | 2D | Panel ======== */
 .dv-main-grid {
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr 380px;
   width: 100%;
   height: 100%;
+  gap: 0;
 }
 
-/* 3D / 2D 区域 */
+/* panes */
 .dv-pane {
   position: relative;
   overflow: hidden;
 }
 
-/* ======== 右侧参数面板（玻璃拟态） ======== */
+/* reusable glass container */
+.dv-glass {
+  background: rgba(10, 12, 18, 0.45);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* right panel: make it same system as toolbar */
 .dv-params {
-  background: linear-gradient(180deg, rgba(30,73,199,0.7), rgba(20,30,60,0.65));
+  /* remove the blue gradient: unify */
+  background: rgba(10, 12, 18, 0.52);
   backdrop-filter: blur(14px);
 
   overflow-y: auto;
-  padding: 18px 20px;
+  padding: 16px 16px 18px 16px;
 
-  border-left: 1px solid rgba(255,255,255,0.2);
-  box-shadow: -4px 0 12px rgba(0,0,0,0.45);
+  border-left: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: -10px 0 24px rgba(0, 0, 0, 0.35);
+}
+
+/* smoother scrolling */
+.dv-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.dv-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.dv-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.dv-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.20);
+  border: 3px solid transparent;
+  background-clip: content-box;
 }
 
 /* Canvas */
@@ -55,14 +193,229 @@
   display: block;
 }
 
-.dv-btn{
+/* ===== ParameterPanel (pp-*) : dark glass unified ===== */
+.pp-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* header */
+.pp-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 2px 8px 2px;
+}
+
+.pp-title {
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+
+.pp-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.pp-badge {
+  font-size: 12px;
   padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.08);
+  opacity: 0.95;
+}
+
+/* card */
+.pp-card {
+  background: rgba(10, 12, 18, 0.45);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.22);
+}
+
+.pp-card-head {
+  padding: 12px 12px 0 12px;
+}
+
+.pp-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+.pp-card-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.pp-card-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* slider */
+.pp-slider-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pp-slider-label {
+  font-size: 12px;
+  opacity: 0.82;
+}
+
+.pp-slider-value {
+  font-size: 12px;
+  font-weight: 650;
+  color: rgba(220, 245, 255, 0.95);
+}
+
+.pp-range {
+  width: 100%;
+  margin-top: 8px;
+  accent-color: rgb(70, 200, 255);
+}
+
+.pp-slider-minmax {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  opacity: 0.5;
+  margin-top: 4px;
+}
+
+/* progress */
+.pp-progress-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.pp-progress-label {
+  opacity: 0.78;
+}
+
+.pp-progress-value {
+  font-weight: 650;
+  color: rgba(220, 245, 255, 0.95);
+}
+
+.pp-progressbar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.pp-progressbar-inner {
+  height: 100%;
+  background: rgba(70, 200, 255, 0.75);
+}
+
+/* actions */
+.pp-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pp-btn {
+  padding: 8px 10px;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.25);
+  border: 1px solid rgba(255,255,255,0.14);
   background: rgba(255,255,255,0.08);
   color: white;
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
 }
-.dv-btn:hover{
-  background: rgba(255,255,255,0.16);
+
+.pp-btn:hover {
+  background: rgba(255,255,255,0.13);
+  border-color: rgba(255,255,255,0.22);
+}
+
+.pp-btn:active {
+  transform: translateY(1px);
+}
+
+.pp-btn-primary {
+  border-color: rgba(100, 210, 255, 0.35);
+  background: rgba(40, 160, 220, 0.22);
+}
+
+.pp-btn-primary:hover {
+  background: rgba(40, 160, 220, 0.30);
+  border-color: rgba(100, 210, 255, 0.50);
+}
+
+.pp-btn-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pp-btn-ghost {
+  padding: 8px 10px;
+}
+
+/* results */
+.pp-muted {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.pp-kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.pp-kpi {
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.06);
+  padding: 10px;
+}
+
+.pp-kpi-label {
+  font-size: 11px;
+  opacity: 0.68;
+}
+
+.pp-kpi-value {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(220, 245, 255, 0.96);
+}
+
+/* Fix: allow grid children to shrink so overflow scroll works correctly */
+.dv-main-grid {
+  min-height: 0;
+}
+
+.dv-pane {
+  min-height: 0;
+}
+
+.dv-params {
+  min-height: 0;
+  /* give a bit of breathing room so the last KPI cards aren’t clipped */
+  padding-bottom: 32px;
 }

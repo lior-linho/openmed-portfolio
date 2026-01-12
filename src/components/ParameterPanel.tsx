@@ -22,30 +22,35 @@ interface SliderProps {
 }
 
 const Card: React.FC<CardProps> = ({ title, subtitle, children }) => (
-  <div className="bg-white/90 p-5 rounded-2xl shadow-xl border border-white/40 space-y-4">
-    <div>
-      <h4 className="text-lg font-semibold text-gray-800">{title}</h4>
-      {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+  <div className="pp-card">
+    <div className="pp-card-head">
+      <h4 className="pp-card-title">{title}</h4>
+      {subtitle && <p className="pp-card-subtitle">{subtitle}</p>}
     </div>
-    {children}
+    <div className="pp-card-body">{children}</div>
   </div>
 );
 
 const Slider: React.FC<SliderProps> = ({ label, value, min, max, step, onChange }) => (
-  <div>
-    <label className="text-sm text-gray-700">
-      {label}:{" "}
-      <span className="font-semibold">{Number.isFinite(value) ? value.toFixed(3) : "—"}</span>
-    </label>
+  <div className="pp-slider">
+    <div className="pp-slider-row">
+      <span className="pp-slider-label">{label}</span>
+      <span className="pp-slider-value">{Number.isFinite(value) ? value.toFixed(3) : "—"}</span>
+    </div>
+
     <input
       type="range"
       min={min}
       max={max}
       step={step}
       value={value}
-      className="w-full accent-blue-500 mt-1"
+      className="pp-range"
       onChange={(e) => onChange(Number(e.target.value))}
     />
+    <div className="pp-slider-minmax">
+      <span>{min}</span>
+      <span>{max}</span>
+    </div>
   </div>
 );
 
@@ -55,13 +60,13 @@ const ParameterPanel: React.FC = () => {
   const params = useParamsStore((s) => s.params);
   const setParam = useParamsStore((s) => s.setParam);
 
-  // ✅ sim state in store（由 WireDemo 的 onProgress 驱动）
   const simProgress = useParamsStore((s) => s.sim.progress);
   const simRunning = useParamsStore((s) => s.sim.running);
   const setSimRunning = useParamsStore((s) => s.setSimRunning);
 
-  // ✅ only show results after 100%
   const [showResults, setShowResults] = useState(false);
+
+  const DONE_THRESHOLD = 0.999;
 
   /* ===== Build Experiment Record ===== */
   const buildExperimentRecord = () => {
@@ -99,23 +104,8 @@ const ParameterPanel: React.FC = () => {
     return { forceMean, completion, patency };
   }, [params]);
 
-  /* ===== Run Simulation =====
-     ✅ 关键：不再 setInterval / 不再 resetSim / 不再清零 progress
-     ✅ progress 完全由 WireDemo onProgress(u) 同步写入 store
-     ✅ 这个按钮只是“开始等待本次导丝推进到 100% 后再显示结果”
-  */
-  const runSimulation = () => {
-    setShowResults(false);
-
-    // 进入 running 状态：UI 显示 waiting
-    setSimRunning(true);
-  };
-
-  /* ===== 当 progress 到 100%：写入结果 + 解锁显示 ===== */
-  useEffect(() => {
-    if (!simRunning) return;
-    if (simProgress < 1) return;
-
+  /* ===== Finalize ===== */
+  const finalize = () => {
     useParamsStore.setState((state) => ({
       params: {
         ...state.params,
@@ -130,6 +120,23 @@ const ParameterPanel: React.FC = () => {
 
     setShowResults(true);
     setSimRunning(false);
+  };
+
+  /* ===== Run Simulation ===== */
+  const runSimulation = () => {
+    setShowResults(false);
+    setSimRunning(true);
+
+    if (simProgress >= DONE_THRESHOLD) {
+      finalize();
+    }
+  };
+
+  useEffect(() => {
+    if (!simRunning) return;
+    if (simProgress < DONE_THRESHOLD) return;
+    finalize();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simProgress, simRunning, computeMetrics, setSimRunning]);
 
   /* ===== Export JSON ===== */
@@ -191,10 +198,21 @@ const ParameterPanel: React.FC = () => {
     alert("Citation text copied.");
   };
 
+  const progressPct = Math.round(simProgress * 100);
+
   return (
-    // ✅ 给底部 sticky 操作区留空间
-    <div className="relative h-full min-h-0 overflow-y-auto space-y-6 pb-40">
-      <h2 className="text-xl font-bold text-white">Physical Patency Simulation Panel</h2>
+    <div className="pp-root">
+      {/* ✅ smaller header, aligned */}
+      <div className="pp-header">
+        <div>
+          <div className="pp-title">Physical Patency Simulation</div>
+          <div className="pp-hint">Parameters · progress · results</div>
+        </div>
+
+        <div className="pp-badge">
+          {simRunning ? "Running" : showResults ? "Done" : "Idle"}
+        </div>
+      </div>
 
       <Card title="Vessel Geometry">
         <Slider
@@ -255,57 +273,55 @@ const ParameterPanel: React.FC = () => {
         />
       </Card>
 
-      <Card title="Simulation Progress" subtitle="Progress is synchronized with guidewire (WireDemo)">
-        <p className="text-sm text-gray-700">
-          Progress: <span className="font-semibold">{Math.round(simProgress * 100)}%</span>
-          {simRunning ? <span className="ml-2 text-xs text-gray-500">(running)</span> : null}
-        </p>
-        <div className="w-full h-2 bg-gray-200 rounded mt-2 overflow-hidden">
-          <div className="h-2 bg-blue-600" style={{ width: `${Math.round(simProgress * 100)}%` }} />
+      <Card title="Simulation" subtitle="Progress is synchronized with guidewire (WireDemo)">
+        <div className="pp-progress-row">
+          <span className="pp-progress-label">Progress</span>
+          <span className="pp-progress-value">{progressPct}%</span>
+        </div>
+
+        <div className="pp-progressbar">
+          <div className="pp-progressbar-inner" style={{ width: `${progressPct}%` }} />
+        </div>
+
+        <div className="pp-actions">
+          <button
+            onClick={runSimulation}
+            disabled={simRunning}
+            className={"pp-btn " + (simRunning ? "pp-btn-disabled" : "pp-btn-primary")}
+          >
+            {simRunning ? "⏳ Waiting..." : "▶ Run Simulation"}
+          </button>
+
+          <button onClick={handleExportJson} className="pp-btn pp-btn-ghost">
+            JSON
+          </button>
+          <button onClick={handleExportCsv} className="pp-btn pp-btn-ghost">
+            CSV
+          </button>
+          <button onClick={handleCopyCitation} className="pp-btn pp-btn-ghost">
+            Copy
+          </button>
         </div>
       </Card>
 
       <Card title="Results">
         {showResults ? (
-          <>
-            <p>Mean Force F_mean (0–1): {params.display.forceMean.toFixed(3)}</p>
-            <p>Patency: {(params.display.patency * 100).toFixed(1)}%</p>
-          </>
+          <div className="pp-kpi-grid">
+            <div className="pp-kpi">
+              <div className="pp-kpi-label">Mean Force (0–1)</div>
+              <div className="pp-kpi-value">{params.display.forceMean.toFixed(3)}</div>
+            </div>
+            <div className="pp-kpi">
+              <div className="pp-kpi-label">Patency</div>
+              <div className="pp-kpi-value">{(params.display.patency * 100).toFixed(1)}%</div>
+            </div>
+          </div>
         ) : (
-          <p className="text-gray-600">
+          <p className="pp-muted">
             {simRunning ? "Waiting for guidewire progress to reach 100%..." : "Click Run Simulation to compute results."}
           </p>
         )}
       </Card>
-
-      {/* ✅ 底部操作区 sticky */}
-      <div className="sticky bottom-0 left-0 right-0 pt-3">
-        <div className="rounded-2xl border border-white/25 bg-slate-950/70 backdrop-blur px-3 py-3 space-y-2 shadow-xl">
-          <button
-            onClick={runSimulation}
-            disabled={simRunning}
-            className={
-              "w-full py-3 rounded-xl " +
-              (simRunning ? "bg-blue-400 text-white/80 cursor-not-allowed" : "bg-blue-600 text-white")
-            }
-          >
-            ▶ Run Simulation
-          </button>
-
-          <div className="flex gap-2">
-            <button onClick={handleExportJson} className="flex-1 py-2 bg-blue-500 text-white rounded-xl">
-              Export JSON
-            </button>
-            <button onClick={handleExportCsv} className="flex-1 py-2 bg-cyan-500 text-white rounded-xl">
-              Export CSV
-            </button>
-          </div>
-
-          <button onClick={handleCopyCitation} className="w-full py-2 border border-white/40 text-white rounded-xl">
-            Copy Citation Text
-          </button>
-        </div>
-      </div>
     </div>
   );
 };
