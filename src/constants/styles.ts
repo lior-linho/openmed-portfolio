@@ -1,4 +1,4 @@
-// 通用样式常量
+
 export const COMMON_STYLES = {
   overlay: {
     position: 'absolute' as const,

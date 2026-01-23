@@ -1,133 +1,133 @@
 # OpenMed Sandbox MVP
 
-一个用于冠脉介入手术模拟的科研工具，支持透视、电影、剂量计算和实验数据导出。
+A research-oriented tool for coronary intervention simulation, supporting fluoroscopy, cine imaging, dose calculation, and experimental data export.
 
-## 🚀 最新版本 v0.4.0
+## 🚀 Latest Release v0.4.0
 
-### ✨ 核心功能
+### ✨ Core Features
 
-#### 透视模拟
-- 实时 X 射线透视
-- 基于时间的剂量积分模型
-- 角度预设 (AP, LAO30/CRA20, RAO30/CAU20 等)
-- 缩放和遮线控制
+#### Fluoroscopy Simulation
+- Real-time X-ray fluoroscopy
+- Time-integrated dose accumulation model
+- Clinical angle presets (AP, LAO30/CRA20, RAO30/CAU20, etc.)
+- Zoom and collimation control
 
-#### 数据记录
-- 路径长度测量
-- 对比剂使用统计
-- 剂量指数计算
-- 病变覆盖率分析
+#### Data Logging
+- Path length measurement
+- Contrast agent usage statistics
+- Dose index calculation
+- Lesion coverage analysis
 
-#### 实验导出
-- JSON 格式 (包含完整参数和元数据)
-- CSV 格式 (包含实验上下文)
-- 参数指纹和运行 ID
-- 标准化引用格式
+#### Experiment Export
+- JSON format (full parameters and metadata)
+- CSV format (with experimental context)
+- Parameter fingerprint and run ID
+- Standardized citation-ready records
 
-## 🛠️ 技术栈
+## 🛠️ Tech Stack
 
-- **前端**: React 18 + TypeScript
-- **3D 渲染**: Three.js + React Three Fiber
-- **状态管理**: Zustand
-- **构建工具**: Vite
+- **Frontend**: React 18 + TypeScript
+- **3D Rendering**: Three.js + React Three Fiber
+- **State Management**: Zustand
+- **Build Tool**: Vite
 
-## 📦 安装和运行
+## 📦 Installation & Run
 
 ```bash
-# 安装依赖
+# Install dependencies
 npm install
 
-# 开发模式
+# Development mode
 npm run dev
 
-# 构建生产版本
+# Build for production
 npm run build
 
-# 预览生产版本
+# Preview production build
 npm run preview
 ```
 
-## 🎮 操作指南
+## 🎮 User Guide
 
-### 基本操作
-1. 选择角度预设或手动调整
-2. 调整缩放和遮线设置
-3. 使用鼠标或键盘控制透视
-4. 记录实验数据
-5. 导出结果用于分析
+### Basic Workflow
+1. Select an angle preset or adjust manually
+2. Adjust zoom and collimation settings
+3. Control fluoroscopy using mouse or keyboard
+4. Record experimental data
+5. Export results for analysis
 
-### 快捷键
-- **F**: 开始透视 (按住)
-- **C**: 开始电影 (3秒)
-- **空格**: 单次拍片
-- **ESC**: 停止透视
+### Keyboard Shortcuts
+- **F**: Start fluoroscopy (hold)
+- **C**: Start cine (3 seconds)
+- **空格**: Single exposure
+- **ESC**: Stop fluoroscopy
 
-### 数据导出
-- **JSON**: 完整实验数据，包含参数和元数据
-- **CSV**: 表格格式，便于统计分析
+### Data Export
+- **JSON**: Complete experimental data with parameters and metadata
+- **CSV**: Tabular format for statistical analysis
 
-## 📊 版本历史
+## 📊 Version History
 
-### v0.4.0 (当前)
-- ✅ 时间积分剂量模型
-- ✅ 全局停止条件
-- ✅ 缩放和遮线功能
-- ✅ 键盘快捷键
-- ✅ 稳定参数指纹
-- ✅ 生产模式优化
+### v0.4.0 (Current)
+- ✅ Time-integrated dose model
+- ✅ Global stop conditions
+- ✅ Zoom and collimation controls
+- ✅ Keyboard shortcuts
+- ✅ Stable parameter fingerprinting
+- ✅ Production-mode optimizations
 
 ### v0.3.0
-- 科研可重复性改进
-- 剂量模型优化
-- 审计导出功能
+- Improved research reproducibility
+- Dose model refinements
+- Auditable export pipeline
 
 ### v0.2.0
-- MVP 基础功能
-- 3D/2D 视图
-- 基本交互
+- MVP core functionality
+- 3D/2D dual-view system
+- Basic interaction model
 
-## 🔬 科研应用
+## 🔬 Research Applications
 
-### 可重复性
-- 固定随机种子
-- 参数哈希追踪
-- 完整实验记录
+### Reproducibility
+- Fixed random seeds
+- Parameter hash tracking
+- Complete experimental records
 
-### 临床相关性
-- 真实剂量模型
-- 临床角度预设
-- 医学指标计算
+### Clinical Relevance
+- Realistic dose modeling
+- Clinically used angle presets
+- Medical metric computation
 
-### 数据质量
-- 稳定计算算法
-- 鲁棒边界处理
-- 准确测量工具
+### Data Quality
+- Stable numerical algorithms
+- Robust boundary handling
+- Accurate measurement tools
 
-## 📝 使用说明
+## 📝 Usage Notes
 
-### 界面布局
-- **左侧**: 2D 造影主窗
-- **右侧**: 数据面板 + 3D 幕后视图
-- **控制栏**: 角度、缩放、遮线、操作按钮
+### Interface Layout
+- **Left**: 3D backstage view
+- **Right**: Data panel + 2D angiography main view
+- **Control Bar**: Angle, zoom, collimation, and operation controls
 
-### 工作流程
-1. **Cross**: 导丝通过病变
-2. **Pre-dilate**: 预扩张
-3. **Deploy**: 支架释放
-4. **Post-dilate**: 后扩张
+### Procedural Workflow
+1. **Cross**: Guidewire crosses the lesion
+2. **Pre-dilate**: Pre-dilation
+3. **Deploy**: Stent deployment
+4. **Post-dilate**: Post-dilation
 
-## 🤝 贡献
+## 🤝 Contributing
 
-欢迎提交 Issue 和 Pull Request！
+Issues and Pull Requests are welcome!
 
-## 📄 许可证
+## 📄 License
 
 MIT License
 
-## 📞 联系
+## 📞 Contact
 
-如有问题或建议，请通过 GitHub Issues 联系我们。
+For questions or suggestions, please contact us via GitHub Issues.
 
 ---
 
-**OpenMed Sandbox v0.4.0** - 精简高效的科研工具 ✨
+**OpenMed Sandbox v0.4.0** - A streamlined and efficient research tool ✨

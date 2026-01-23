@@ -3,7 +3,7 @@ import { defaultLesion, defaultStent, coveragePct as covFn, residualStenosisPct 
 import { DOSE_RATES } from '../constants/dose'
 import { WirePreset, StentPreset, WIRE_PRESETS, STENT_PRESETS } from '../constants/models'
 
-// 将模块级变量移至闭包内，避免全局污染
+
 const createWorkflowStore = () => {
   let rafId: number | null = null;
   let lastTs: number | null = null;
@@ -86,18 +86,18 @@ const createWorkflowStore = () => {
 
 
 
-  // 面积因子计算
+
   const areaFactor = (c: { left: number; top: number; right: number; bottom: number }): number => {
     const a = (c.right - c.left) * (c.bottom - c.top)
     return Math.max(0.05, Math.min(1, a))
   }
 
-  // 优化的基于时间的剂量积分函数
+
   const tickDose = (ratePerSec: number, get: () => Store, set: (partial: Partial<Store> | ((state: Store) => Partial<Store>)) => void) => {
     const now = performance.now()
     const s = get()
     
-    // 时间稳定性检查
+
     if (lastTs == null) {
       lastTs = now
       rafId = requestAnimationFrame(() => tickDose(ratePerSec, get, set))
@@ -106,8 +106,8 @@ const createWorkflowStore = () => {
     
     const dt = (now - lastTs) / 1000
     
-    // 防止异常时间间隔（如页面切换、系统休眠等）
-    const MAX_DT = 0.1 // 最大允许100ms间隔
+
+    const MAX_DT = 0.1 
     const clampedDt = Math.min(dt, MAX_DT)
     
     lastTs = now
@@ -123,7 +123,7 @@ const createWorkflowStore = () => {
     rafId = requestAnimationFrame(() => tickDose(ratePerSec, get, set))
   }
 
-  // 优化的电影剂量计算
+
   const tickCineDose = (
     ratePerSec: number, 
     startTime: number, 
@@ -144,7 +144,7 @@ const createWorkflowStore = () => {
     
     const s = get()
     
-    // 时间稳定性检查
+
     if (lastTs == null) {
       lastTs = now
       rafId = requestAnimationFrame(() => tickCineDose(ratePerSec, startTime, duration, get, set))
@@ -265,18 +265,18 @@ const createWorkflowStore = () => {
     }),
     addPath: (len) => set(s => {
       const newPathLength = s.metrics.pathLength + len
-      // 性能优化：只在值真正改变时更新
+
       if (Math.abs(newPathLength - s.metrics.pathLength) < 1e-6) return s
       return { metrics: { ...s.metrics, pathLength: newPathLength }}
     }),
     setProgress: (p) => set(s => {
       const newProgress = Math.max(0, Math.min(1, p))
-      // 性能优化：只在值真正改变时更新
+
       if (Math.abs(newProgress - s.metrics.progress) < 1e-6) return s
       return { metrics: { ...s.metrics, progress: newProgress }}
     }),
     setAngles: (a) => set(s => {
-      // 性能优化：只在角度真正改变时更新
+
       if (Math.abs(s.angles.laoRaoDeg - a.laoRaoDeg) < 1e-6 && 
           Math.abs(s.angles.cranialCaudalDeg - a.cranialCaudalDeg) < 1e-6) {
         return s
@@ -285,7 +285,7 @@ const createWorkflowStore = () => {
     }),
     setZoom: (z) => set(s => {
       const newZoom = Math.max(1, Math.min(3, z))
-      // 性能优化：只在缩放真正改变时更新
+
       if (Math.abs(s.zoom - newZoom) < 1e-6) return s
       return { zoom: newZoom }
     }),
@@ -296,7 +296,7 @@ const createWorkflowStore = () => {
         right: Math.max(0, Math.min(1, c.right)),
         bottom: Math.max(0, Math.min(1, c.bottom)),
       }
-      // 性能优化：只在collimation真正改变时更新
+
       if (Math.abs(s.collimation.left - newCollimation.left) < 1e-6 &&
           Math.abs(s.collimation.top - newCollimation.top) < 1e-6 &&
           Math.abs(s.collimation.right - newCollimation.right) < 1e-6 &&
@@ -323,12 +323,12 @@ const createWorkflowStore = () => {
           return;
         }
         
-        const dt = Math.min((now - lastTs) / 1000, 0.1); // 限制最大时间间隔
+        const dt = Math.min((now - lastTs) / 1000, 0.1); 
         lastTs = now;
         
         const s = get();
         if (s.fluoroMode !== 'fluoro') {
-          // 模式已更改，停止循环
+
           if (rafId) cancelAnimationFrame(rafId);
           rafId = null;
           return;
@@ -343,7 +343,7 @@ const createWorkflowStore = () => {
           metrics: { ...s.metrics, doseIndex: s.metrics.doseIndex + doseDelta }
         });
         
-        // 添加条件检查，确保只在fluoro模式下继续循环
+
         if (s.fluoroMode === 'fluoro') {
           rafId = requestAnimationFrame(tick);
         }
@@ -407,7 +407,7 @@ const createWorkflowStore = () => {
           metrics: { ...s.metrics, doseIndex: s.metrics.doseIndex + doseDelta }
         });
         
-        // 添加条件检查，确保只在cine模式下继续循环
+
         if (s.fluoroMode === 'cine') {
           rafId = requestAnimationFrame(tick);
         }
@@ -464,7 +464,7 @@ const createWorkflowStore = () => {
 
 export const useWorkflow = createWorkflowStore();
 
-// 导出类型供其他文件使用
+
 export type Step = 'Cross' | 'Pre-dilate' | 'Deploy' | 'Post-dilate'
 export type Angles = { laoRaoDeg: number; cranialCaudalDeg: number }
 export type FluoroMode = 'idle' | 'fluoro' | 'cine'

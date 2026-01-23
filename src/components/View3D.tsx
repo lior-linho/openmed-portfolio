@@ -23,11 +23,10 @@ export default function View3D({ centerline }: View3DProps) {
 
   const vesselRef = useRef<THREE.Group | null>(null);
 
-  // ⭐ 保存原始几何，不被修改（非常重要）
+
   const originalGeometries = useRef<WeakMap<THREE.Mesh, Float32Array>>(new WeakMap());
 
-  // -------------------------------------------------------
-  // 加载场景 & 模型
+
   // -------------------------------------------------------
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -60,7 +59,7 @@ export default function View3D({ centerline }: View3DProps) {
       vesselRef.current = vessel;
       scene.add(vessel);
 
-      // ⭐ 保存所有 mesh 的原始 geometry（顶点位置）
+
       vessel.traverse(obj => {
         if (obj instanceof THREE.Mesh) {
           const arr = obj.geometry.attributes.position.array as Float32Array;
@@ -89,8 +88,7 @@ export default function View3D({ centerline }: View3DProps) {
     };
   }, [canvasRef, currentKey, catalog, loadedMap, setLoaded]);
 
-  // -------------------------------------------------------
-  // ⭐ 只改变血管直径，不改变整体大小
+
   // -------------------------------------------------------
   useEffect(() => {
     const vessel = vesselRef.current;
@@ -99,7 +97,7 @@ export default function View3D({ centerline }: View3DProps) {
     const baseDiameter = 3.0;
     const k = vesselParams.innerDiameter / baseDiameter;
 
-    // ---- 计算血管主方向（最大轴） ----
+
     const box = new THREE.Box3().setFromObject(vessel);
     const size = new THREE.Vector3();
     const center = new THREE.Vector3();
@@ -111,7 +109,7 @@ export default function View3D({ centerline }: View3DProps) {
     else if (size.y >= size.x && size.y >= size.z) axis.set(0, 1, 0);
     else axis.set(0, 0, 1);
 
-    // ⭐ 逐 mesh 变形（基于原始 geometry，不会累积）
+
     vessel.traverse(obj => {
       if (!(obj instanceof THREE.Mesh)) return;
 
@@ -127,22 +125,22 @@ export default function View3D({ centerline }: View3DProps) {
       const origV = new THREE.Vector3();
 
       for (let i = 0; i < count; i++) {
-        // 从“原始 geometry”读取位置（不累积变形）
+
         origV.set(
           original[i * 3 + 0],
           original[i * 3 + 1],
           original[i * 3 + 2]
         );
 
-        // 投影到主轴：保持长度不变
+
         const toV = origV.clone().sub(center);
         const d = toV.dot(axis);
         proj.copy(axis).multiplyScalar(d).add(center);
 
-        // 横向方向
+
         const radial = origV.clone().sub(proj);
 
-        // ⭐ 新顶点位置（只改变横截面大小）
+
         const newV = proj.add(radial.multiplyScalar(k));
 
         pos.setXYZ(i, newV.x, newV.y, newV.z);

@@ -3,23 +3,23 @@ export interface VascularModel {
   id: string;
   name: string;
   description: string;
-  curvature: number; // 弯曲角度（度数）
-  calcification: number; // 钙化程度（0-100%）
-  length: number; // 血管段长度（单位mm）
-  stenosis: number; // 狭窄程度（0-100%）
+  curvature: number; 
+  calcification: number; 
+  length: number; 
+  stenosis: number; 
 }
 
 export interface WirePreset {
   id: string;
   name: string;
-  flexibility: number; // 柔顺性 (0-1)
-  pushability: number; // 推送性 (0-1)
+  flexibility: number; 
+  pushability: number; 
 }
 
 export interface StentPreset {
   id: string;
   name: string;
-  oversize: number; // oversize百分比
+  oversize: number; 
 }
 
 // Standard model

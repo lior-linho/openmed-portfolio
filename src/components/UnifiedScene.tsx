@@ -7,11 +7,11 @@ import { OrbitControls, Line, Sphere } from "@react-three/drei";
 import * as THREE from "three";
 import { useMemo, useRef, useEffect, useCallback } from "react";
 
-// 状态管理
+
 import { useWorkflow } from "../state/workflow";
 import { useParamsStore } from "../state/paramsStore";
 
-// 几何 & 相机
+
 import {
   makeCenterline,
   clipByProgress,
@@ -20,22 +20,21 @@ import {
   makeXrayCamera,
 } from "../sim/geometry";
 
-// 阻力模型
+
 import { ResistanceSampler } from "../sim/ResistanceSampler";
 import { performanceMonitor, measurePerformance } from "../utils/performance";
 
-// 其他组件
+
 import { CameraController } from "./CameraController";
 import { StepVisuals } from "./StepVisuals";
 
-// ==========================================================
-// 主场景 (Unified Scene)
+
 // ==========================================================
 export function UnifiedScene() {
   const points = useMemo(() => makeCenterline(200), []);
   const { angles, zoom } = useWorkflow();
 
-  // 摄像机配置
+
   const cameraConfig = useMemo(() => {
     const aspect = 1.0;
     const camera = makeXrayCamera(angles, aspect);
@@ -61,24 +60,22 @@ export function UnifiedScene() {
   );
 }
 
-// ==========================================================
-// SceneContents - 真正的 3D 主内容
+
 // ==========================================================
 export function SceneContents({ points }: { points: THREE.Vector3[] }) {
-  // ===== 从全局参数中读取（关键！） =====
+
   const vesselParams = useParamsStore((s) => s.params.vessel);
   const bloodParams = useParamsStore((s) => s.params.blood);
 
   const { addPath, setProgress } = useWorkflow();
   const cum = useMemo(() => accumulateArcLengths(points), [points]);
 
-  // ==========================================================
-  // ⚡️ TubeGeometry：根据参数联动血管半径
+
   // ==========================================================
   const tube = useMemo(() => {
     const curve = new THREE.CatmullRomCurve3(points);
 
-    // mm → world scale (可调整)
+    // mm → world scale 
     const radius = vesselParams.innerDiameter * 0.05;
 
     console.log(
@@ -92,8 +89,7 @@ export function SceneContents({ points }: { points: THREE.Vector3[] }) {
     return new THREE.TubeGeometry(curve, 300, radius, 16, false);
   }, [points, vesselParams.innerDiameter]);
 
-  // ==========================================================
-  // 阻力采样器逻辑（原样保留）
+
   // ==========================================================
   const vesselRef = useRef<THREE.Mesh>(null!);
   const samplerRef = useRef<ResistanceSampler>();
@@ -123,8 +119,7 @@ export function SceneContents({ points }: { points: THREE.Vector3[] }) {
     }
   }, [currentWire, currentStent, step]);
 
-  // ==========================================================
-  // 阻力采样 - 受粘度影响
+
   // ==========================================================
   const updateResistance = useCallback(() => {
     const { metrics } = useWorkflow.getState();
@@ -150,7 +145,7 @@ export function SceneContents({ points }: { points: THREE.Vector3[] }) {
         metrics.progress
       ) ?? { R: 0 };
 
-    // 粘度增强阻力效果
+
     const viscosityFactor = bloodParams.viscosity / 3.5;
 
     resistanceRef.current = res.R * viscosityFactor;
@@ -165,8 +160,7 @@ export function SceneContents({ points }: { points: THREE.Vector3[] }) {
     return () => clearInterval(timer);
   }, [updateResistance]);
 
-  // ==========================================================
-  // 自动推进逻辑（受 flowVelocity 影响）
+
   // ==========================================================
   const { metrics } = useWorkflow();
   const progRef = useRef(metrics.progress);
@@ -179,7 +173,7 @@ export function SceneContents({ points }: { points: THREE.Vector3[] }) {
     const { controlMode, step } = useWorkflow.getState();
     if (controlMode !== "auto") return;
 
-    // FlowVelocity → 速度因子
+    // FlowVelocity 
     const velocityFactor = (bloodParams.flowVelocity - 10) / 20 + 0.5;
 
     const base = step === "Cross" ? 0.15 : 0.05;
@@ -193,15 +187,14 @@ export function SceneContents({ points }: { points: THREE.Vector3[] }) {
     progRef.current = clamped;
   });
 
-  // ==========================================================
-  // 渲染内容
+
   // ==========================================================
   return (
     <>
       <ambientLight intensity={0.7} />
       <directionalLight position={[3, 5, 2]} intensity={1.2} />
 
-      {/* 血管（使用联动后的 TubeGeometry） */}
+      {/* TubeGeometry） */}
       <mesh ref={vesselRef} geometry={tube}>
         <meshStandardMaterial
           color="#7dd3fc"

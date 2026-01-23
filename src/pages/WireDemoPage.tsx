@@ -5,7 +5,7 @@ import WireDemo from "../features/WireDemo";
 import type { VesselId } from "../../assets/vessels/centerlines";
 import { getCenterlineForVessel } from "../../assets/vessels/centerlines";
 
-import "../styles/dualview.css"; // ✅ 复用同一套 UI 样式
+import "../styles/dualview.css"; 
 
 const DEMO_VESSELS: { id: VesselId; label: string }[] = [
   { id: "cta_aorta", label: "CTA Aorta" },

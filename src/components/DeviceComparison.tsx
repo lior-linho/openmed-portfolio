@@ -6,21 +6,21 @@ export function DeviceComparison() {
   const currentStent = useWorkflow(s => s.currentStent)
 
   const getWireFlexibilityColor = (flexibility: number) => {
-    if (flexibility > 0.7) return '#10b981' // 绿色 - 高柔顺性
-    if (flexibility > 0.4) return '#f59e0b' // 黄色 - 中等柔顺性
-    return '#ef4444' // 红色 - 低柔顺性
+    if (flexibility > 0.7) return '#10b981' 
+    if (flexibility > 0.4) return '#f59e0b' 
+    return '#ef4444' 
   }
 
   const getWirePushabilityColor = (pushability: number) => {
-    if (pushability > 0.6) return '#10b981' // 绿色 - 高推送性
-    if (pushability > 0.3) return '#f59e0b' // 黄色 - 中等推送性
-    return '#ef4444' // 红色 - 低推送性
+    if (pushability > 0.6) return '#10b981' 
+    if (pushability > 0.3) return '#f59e0b' 
+    return '#ef4444' 
   }
 
   const getStentOversizeColor = (oversize: number) => {
-    if (oversize > 12) return '#10b981' // 绿色 - 高oversize
-    if (oversize > 7) return '#f59e0b' // 黄色 - 中等oversize
-    return '#ef4444' // 红色 - 低oversize
+    if (oversize > 12) return '#10b981' 
+    if (oversize > 7) return '#f59e0b' 
+    return '#ef4444' 
   }
 
   return (

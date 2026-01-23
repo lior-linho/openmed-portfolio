@@ -4,12 +4,12 @@ import { useRef } from 'react'
 import * as THREE from 'three'
 import { create } from 'zustand'
 
-// ---------- Zustand 状态 ----------
+// ---------- Zustand ----------
 type Store = {
   angle: number
-  speed: number          // 旋转速度 (0~3)
-  running: boolean       // 是否旋转
-  color: string          // 立方体颜色
+  speed: number          
+  running: boolean       
+  color: string          
   tick: () => void
   setSpeed: (v: number) => void
   setColor: (c: string) => void
@@ -21,7 +21,7 @@ const useStore = create<Store>((set, get) => ({
   angle: 0,
   speed: 1,
   running: true,
-  color: '#f59e0b', // 橙色
+  color: '#f59e0b', 
   tick: () => {
     const { running, speed } = get()
     if (running) set((s) => ({ angle: s.angle + 0.01 * speed }))
@@ -32,7 +32,7 @@ const useStore = create<Store>((set, get) => ({
   reset: () => set({ angle: 0, speed: 1, running: true, color: '#f59e0b' }),
 }))
 
-// ---------- 3D 物体 ----------
+// ---------- 3D ----------
 function RotatingBox() {
   const meshRef = useRef<THREE.Mesh>(null!)
   const angle = useStore((s) => s.angle)
@@ -54,7 +54,7 @@ function RotatingBox() {
   )
 }
 
-// ---------- UI 控制面板 ----------
+// ---------- UI ----------
 function Panel() {
   const { speed, running, color, setSpeed, setColor, toggleRunning, reset } = useStore()
   const box: React.CSSProperties = {
@@ -87,7 +87,7 @@ function Panel() {
   )
 }
 
-// ---------- 页面 ----------
+// ---------- page ----------
 export default function PrototypePage() {
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000' }}>

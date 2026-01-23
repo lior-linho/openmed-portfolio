@@ -130,11 +130,11 @@ const App: React.FC = () => {
   vesselId={vesselId}
   centerline={safeLine}
   onProgress={(u) => {
-    // ✅ u 就是导丝进度(0..1)，直接同步给面板 & 顶部栏
+  
     useParamsStore.getState().setSimProgress(u);
   }}
   onStateChange={(s) => {
-    // ✅ 成功/失败时结束 running
+
     if (s === "success" || s === "fail") {
       useParamsStore.getState().setSimRunning(false);
     }
@@ -143,7 +143,7 @@ const App: React.FC = () => {
 
             </div>
 
-            {/* 右：ParameterPanel 固定宽度 */}
+            {/* ParameterPanel */}
             <aside
               style={{
                 width: 360,

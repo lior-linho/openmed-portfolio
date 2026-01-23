@@ -13,7 +13,7 @@ import "../styles/dualview.css";
 import { useParamsStore } from "../state/paramsStore";
 import { useWorkflow } from "../state/workflow";
 
-// ====== 小工具：中心线弧长累计 ======
+
 type Vec3 = { x: number; y: number; z: number };
 
 function accumulateArcLengths(points: Vec3[]) {
@@ -101,7 +101,7 @@ export default function DualViewPage({ vesselId, onVesselChange }: DualViewPageP
 
   const totalLen = cum[cum.length - 1] || 1;
 
-  // ✅ 切换血管时：重置 workflow + sim（避免切完还在100%）
+  
   const lastVesselRef = useRef<string | null>(null);
   useEffect(() => {
     if (lastVesselRef.current !== effectiveId) {
@@ -116,7 +116,7 @@ export default function DualViewPage({ vesselId, onVesselChange }: DualViewPageP
     }
   }, [effectiveId]);
 
-  // ✅ rAF：只启动一次（中心线变化时重建），每帧从 getState() 读最新值
+  
   const rafRef = useRef<number | null>(null);
   const lastTsRef = useRef<number | null>(null);
 

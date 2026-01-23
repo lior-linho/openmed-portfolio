@@ -31,18 +31,16 @@ export class ErrorBoundary extends Component<Props, State> {
       errorInfo
     })
 
-    // 调用错误处理回调
+    
     this.props.onError?.(error, errorInfo)
   }
 
   render() {
     if (this.state.hasError) {
-      // 自定义错误UI
       if (this.props.fallback) {
         return this.props.fallback
       }
 
-      // 默认错误UI
       return (
         <div style={{
           padding: '20px',
@@ -95,10 +93,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-// 函数式组件的错误边界Hook
+
 export function useErrorHandler() {
   return (error: Error, errorInfo?: ErrorInfo) => {
     console.error('Error caught by useErrorHandler:', error, errorInfo)
-    // 这里可以添加错误上报逻辑
   }
 }
