@@ -28,6 +28,7 @@ export const STANDARD_MODEL: VascularModel = {
   name: 'OpenMed Standard Calcified Bend (v1)', // keep English name
   description: 'Standardized heavy calcified bend lesion',
   curvature: 90, // 90-degree bend
+  calcification: 70,
   length: 30, // 30mm
   stenosis: 60, // 60% stenosis
 };

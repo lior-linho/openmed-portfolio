@@ -31,6 +31,7 @@ const vesselModelUrls: Record<VesselId, string> = {
   cta_aorta: "/assets/vessels/cta_aorta.glb",
   coronary_lad: "/assets/vessels/coronary_LAD.glb",
   renal_demo: "/assets/vessels/renal_demo.glb",
+  standard_bend: "/assets/vessels/cta_aorta.glb",
 };
 
 function vAdd(a: Vec3, b: Vec3): Vec3 { return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }; }

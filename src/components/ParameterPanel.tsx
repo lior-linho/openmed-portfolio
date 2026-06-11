@@ -4,6 +4,9 @@ import { useParamsStore } from "../state/paramsStore";
 import { paramsToExperiment } from "../sim/interfaceAdapter";
 import type { ExperimentMeta } from "../sim/experimentSchema";
 
+// ⭐ 新增：引入当前使用的模型（Standard Calcified Bend v1）
+import { STANDARD_MODEL } from "../constants/models";
+
 /* ---------- 类型定义 ---------- */
 
 interface CardProps {
@@ -27,18 +30,18 @@ interface SliderProps {
 const Card: React.FC<CardProps> = ({ title, subtitle, children }) => (
   <div
     className="
-      bg-white/90 
-      backdrop-blur-xl 
-      p-5 
-      rounded-2xl 
-      shadow-xl 
-      border border-white/40 
+      bg-black/55
+      backdrop-blur-xl
+      p-5
+      rounded-2xl
+      border border-[#002FA7]/60
+      shadow-[0_0_0_1px_rgba(0,47,167,0.18),0_24px_80px_rgba(0,0,0,0.45)]
       space-y-4
     "
   >
-    <div className="flex justify-between items-center">
-      <h4 className="text-lg font-semibold text-gray-800">{title}</h4>
-      {subtitle && <span className="text-sm text-gray-400">{subtitle}</span>}
+    <div className="flex justify-between items-center gap-4">
+      <h4 className="text-sm uppercase tracking-[0.22em] font-semibold text-white">{title}</h4>
+      {subtitle && <span className="text-xs text-white/45">{subtitle}</span>}
     </div>
     {children}
   </div>
@@ -53,16 +56,21 @@ const Slider: React.FC<SliderProps> = ({
   step,
   onChange,
 }) => (
-  <div className="mb-2">
-    <label className="text-sm text-white/80">
-      {label} — {displayValue ?? value}
-    </label>
+  <div className="mb-4 last:mb-0">
+    <div className="flex items-center justify-between gap-3 mb-2">
+      <label className="text-xs uppercase tracking-[0.14em] text-white/55">
+        {label}
+      </label>
+      <span className="text-xs font-mono text-[#6EA8FF]">
+        {displayValue ?? value}
+      </span>
+    </div>
     <input
       type="range"
       min={min}
       max={max}
       step={step}
-      className="w-full accent-blue-400 mt-1"
+      className="w-full accent-[#002FA7]"
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
     />
@@ -81,8 +89,8 @@ const ParameterPanel: React.FC = () => {
     const meta: ExperimentMeta = {
       id: `exp_${now.toISOString()}`,
       timestamp: now.toISOString(),
-      // 这里以后可以接入 useVesselStore 拿到 currentKey:
-      // vesselModelKey: currentKey
+      // ⭐ 这里把当前使用的“使用者模型”写进记录里
+      vesselModelKey: STANDARD_MODEL.id,
     };
     return paramsToExperiment(meta, params);
   };
@@ -237,13 +245,19 @@ const ParameterPanel: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full overflow-y-auto space-y-6">
-      {/* 顶部标题 */}
+    <div className="w-full h-full overflow-y-auto space-y-6 bg-[#050505] text-white p-6 border-l border-[#002FA7]/70">
+      {/* 顶部标题 + 当前模型信息 */}
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text白 drop-shadow">
-          Parameter Panel
-        </h2>
-        <span className="text-sm text-blue-200">Simulation / Ready</span>
+        <div>
+          <h2 className="text-xl font-bold text-white tracking-tight">
+            Parameter Panel
+          </h2>
+          <p className="text-xs text-white/50 mt-1">
+            Current Model: {STANDARD_MODEL.name} · Curv {STANDARD_MODEL.curvature}° ·
+            Stenosis {STANDARD_MODEL.stenosis}% · Ca {STANDARD_MODEL.calcification}%
+          </p>
+        </div>
+        <span className="text-sm text-[#6EA8FF] border border-[#002FA7]/60 rounded-full px-3 py-1">Simulation / Ready</span>
       </div>
 
       <div className="space-y-6">
@@ -348,19 +362,19 @@ const ParameterPanel: React.FC = () => {
 
         {/* ===== Display Panel ===== */}
         <Card title="Display Parameters" subtitle="Live Values">
-          <p className="text-gray-700">
+          <p className="text-sm text-white/65 font-mono">
             Force (N): {params.display.force.toFixed(2)}
           </p>
-          <p className="text-gray-700">
+          <p className="text-sm text-white/65 font-mono">
             Path Points: {params.display.pathPoints}
           </p>
-          <p className="text-gray-700">
+          <p className="text-sm text-white/65 font-mono">
             Iterations: {params.display.iterations}
           </p>
-          <p className="text-gray-700">
+          <p className="text-sm text-white/65 font-mono">
             Attempts: {params.display.attempts}
           </p>
-          <p className="text-gray-700">
+          <p className="text-sm text-white/65 font-mono">
             Patency: {(params.display.patency * 100).toFixed(1)}%
           </p>
         </Card>
@@ -373,10 +387,10 @@ const ParameterPanel: React.FC = () => {
               onClick={handleExportJson}
               className="
                 flex-1 py-2.5 
-                bg-gradient-to-r from-blue-500 to-blue-700 
-                hover:from-blue-400 hover:to-blue-600
-                text-white font-semibold 
-                rounded-xl shadow-lg
+                bg-white
+                hover:bg-[#E9EEFF]
+                text-black font-semibold
+                rounded-xl border border-white/80
                 transition-all duration-200
               "
             >
@@ -387,10 +401,10 @@ const ParameterPanel: React.FC = () => {
               onClick={handleExportCsv}
               className="
                 flex-1 py-2.5 
-                bg-gradient-to-r from-cyan-500 to-sky-600 
-                hover:from-cyan-400 hover:to-sky-500
-                text-white font-semibold 
-                rounded-xl shadow-lg
+                bg-black
+                hover:bg-[#07133A]
+                text-white font-semibold
+                rounded-xl border border-[#002FA7]
                 transition-all duration-200
               "
             >
@@ -419,7 +433,7 @@ const ParameterPanel: React.FC = () => {
             onClick={handleReset}
             className="
               w-full py-2.5 
-              border border白/60 
+              border border-white/60 
               text-white 
               rounded-xl
               hover:bg-white/10 
